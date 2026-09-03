@@ -98,10 +98,10 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
   const [seed3TeamId, setSeed3TeamId] = useState<string>('');
   const [seed4TeamId, setSeed4TeamId] = useState<string>('');
 
-  // Assigned slots for the 4 seeds (defaults: 1=Slot 1, 2=Slot 16, 3=Slot 9, 4=Slot 8)
-  const [seed1Slot, setSeed1Slot] = useState<number>(1);
-  const [seed2Slot, setSeed2Slot] = useState<number>(16);
-  const [seed3Slot, setSeed3Slot] = useState<number>(9);
+  // Assigned slots for the 4 seeds (defaults: Undian 3, Undian 19, Undian 11, Undian 8)
+  const [seed1Slot, setSeed1Slot] = useState<number>(3);
+  const [seed2Slot, setSeed2Slot] = useState<number>(19);
+  const [seed3Slot, setSeed3Slot] = useState<number>(11);
   const [seed4Slot, setSeed4Slot] = useState<number>(8);
 
   const [seedSuccess, setSeedSuccess] = useState<string | null>(null);
@@ -359,10 +359,10 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     const t2 = roster.find(t => t.id === seed2TeamId);
     if (!t1 || !t2) return;
 
-    // 50:50 Coin Toss: Slot 1 (Pool Atas) vs Slot 16 (Pool Bawah)
+    // 50:50 Coin Toss: Undian 3 (Pool Atas) vs Undian 19 (Pool Bawah)
     const isT1Top = Math.random() < 0.5;
-    const slotT1 = isT1Top ? 1 : 16;
-    const slotT2 = isT1Top ? 16 : 1;
+    const slotT1 = isT1Top ? 3 : 19;
+    const slotT2 = isT1Top ? 19 : 3;
 
     setSeed1Slot(slotT1);
     setSeed2Slot(slotT2);
@@ -375,8 +375,8 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     setRoster(updatedRoster);
 
     const outcomeMsg = isT1Top
-      ? `🎲 Hasil Acak Pool: Juara 1 (${t1.name}) ➔ Pool Atas (Slot #1) & Juara 2 (${t2.name}) ➔ Pool Bawah (Slot #16)`
-      : `🎲 Hasil Acak Pool: Juara 1 (${t1.name}) ➔ Pool Bawah (Slot #16) & Juara 2 (${t2.name}) ➔ Pool Atas (Slot #1)`;
+      ? `🎲 Hasil Acak Pool: Juara 1 (${t1.name}) ➔ Pool Atas (Undian #3) & Juara 2 (${t2.name}) ➔ Pool Bawah (Undian #19)`
+      : `🎲 Hasil Acak Pool: Juara 1 (${t1.name}) ➔ Pool Bawah (Undian #19) & Juara 2 (${t2.name}) ➔ Pool Atas (Undian #3)`;
 
     setSeedSuccess(outcomeMsg);
     await syncRosterAndMatches(updatedRoster, outcomeMsg);
@@ -392,10 +392,10 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     const t4 = roster.find(t => t.id === seed4TeamId);
     if (!t3 || !t4) return;
 
-    // 50:50 Coin Toss: Slot 8 (Pool Atas) vs Slot 9 (Pool Bawah)
+    // 50:50 Coin Toss: Undian 8 (Pool Atas) vs Undian 11 (Pool Bawah)
     const isT3Top = Math.random() < 0.5;
-    const slotT3 = isT3Top ? 8 : 9;
-    const slotT4 = isT3Top ? 9 : 8;
+    const slotT3 = isT3Top ? 8 : 11;
+    const slotT4 = isT3Top ? 11 : 8;
 
     setSeed3Slot(slotT3);
     setSeed4Slot(slotT4);
@@ -408,8 +408,8 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     setRoster(updatedRoster);
 
     const outcomeMsg = isT3Top
-      ? `🎲 Hasil Acak Pool: Juara 3 (${t3.name}) ➔ Pool Atas (Slot #8) & Juara 4 (${t4.name}) ➔ Pool Bawah (Slot #9)`
-      : `🎲 Hasil Acak Pool: Juara 3 (${t3.name}) ➔ Pool Bawah (Slot #9) & Juara 4 (${t4.name}) ➔ Pool Atas (Slot #8)`;
+      ? `🎲 Hasil Acak Pool: Juara 3 (${t3.name}) ➔ Pool Atas (Undian #8) & Juara 4 (${t4.name}) ➔ Pool Bawah (Undian #11)`
+      : `🎲 Hasil Acak Pool: Juara 3 (${t3.name}) ➔ Pool Bawah (Undian #11) & Juara 4 (${t4.name}) ➔ Pool Atas (Undian #8)`;
 
     setSeedSuccess(outcomeMsg);
     await syncRosterAndMatches(updatedRoster, outcomeMsg);
@@ -428,12 +428,12 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     if (!t1 || !t2 || !t3 || !t4) return;
 
     const isT1Top = Math.random() < 0.5;
-    const slotT1 = isT1Top ? 1 : 16;
-    const slotT2 = isT1Top ? 16 : 1;
+    const slotT1 = isT1Top ? 3 : 19;
+    const slotT2 = isT1Top ? 19 : 3;
 
     const isT3Top = Math.random() < 0.5;
-    const slotT3 = isT3Top ? 8 : 9;
-    const slotT4 = isT3Top ? 9 : 8;
+    const slotT3 = isT3Top ? 8 : 11;
+    const slotT4 = isT3Top ? 11 : 8;
 
     setSeed1Slot(slotT1);
     setSeed2Slot(slotT2);
@@ -449,7 +449,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     });
     setRoster(updatedRoster);
 
-    const outcomeMsg = `🎉 Hasil Acak 4 Besar Selesai!\n• Juara 1 (${t1.name}): ${isT1Top ? 'Pool Atas (Slot #1)' : 'Pool Bawah (Slot #16)'}\n• Juara 2 (${t2.name}): ${isT1Top ? 'Pool Bawah (Slot #16)' : 'Pool Atas (Slot #1)'}\n• Juara 3 (${t3.name}): ${isT3Top ? 'Pool Atas (Slot #8)' : 'Pool Bawah (Slot #9)'}\n• Juara 4 (${t4.name}): ${isT3Top ? 'Pool Bawah (Slot #9)' : 'Pool Atas (Slot #8)'}`;
+    const outcomeMsg = `🎉 Hasil Acak 4 Besar Selesai!\n• Juara 1 (${t1.name}): ${isT1Top ? 'Pool Atas (Undian #3)' : 'Pool Bawah (Undian #19)'}\n• Juara 2 (${t2.name}): ${isT1Top ? 'Pool Bawah (Undian #19)' : 'Pool Atas (Undian #3)'}\n• Juara 3 (${t3.name}): ${isT3Top ? 'Pool Atas (Undian #8)' : 'Pool Bawah (Undian #11)'}\n• Juara 4 (${t4.name}): ${isT3Top ? 'Pool Bawah (Undian #11)' : 'Pool Atas (Undian #8)'}`;
 
     setSeedSuccess(outcomeMsg);
     await syncRosterAndMatches(updatedRoster, outcomeMsg);
