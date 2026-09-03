@@ -9,7 +9,9 @@ import {
   ArrowRight, 
   CheckCircle2, 
   Trophy,
-  Star
+  Star,
+  RotateCcw,
+  XCircle
 } from 'lucide-react';
 import { Team } from '../../types/tournament';
 
@@ -21,6 +23,7 @@ interface GlassBowlLotteryVisualizerProps {
   currentSlotLabel: string;
   isAdmin: boolean;
   onConfirmSlot: () => void;
+  onCancelDraw?: () => void;
   statusMessage?: string;
 }
 
@@ -126,7 +129,7 @@ export const GlassBowlLotteryVisualizer: React.FC<GlassBowlLotteryVisualizerProp
                 initial={{ y: 0, rotate: 0 }}
                 animate={{ y: -65, rotate: -18 }}
                 transition={{ type: "spring", stiffness: 180, damping: 18, delay: 0.15 }}
-                className="w-36 h-18 rounded-t-full shadow-2xl relative overflow-hidden border-t-2 border-amber-200"
+                className="w-36 h-[72px] rounded-t-full shadow-2xl relative overflow-hidden border-t-2 border-amber-200"
                 style={{
                   background: 'radial-gradient(circle at 50% 20%, #ffffff 0%, #fbbf24 40%, #b45309 85%, #78350f 100%)',
                   boxShadow: '0 -10px 25px rgba(251, 191, 36, 0.4), inset 0 3px 6px rgba(255,255,255,0.8)'
@@ -151,7 +154,7 @@ export const GlassBowlLotteryVisualizer: React.FC<GlassBowlLotteryVisualizerProp
                 initial={{ y: 0, rotate: 0 }}
                 animate={{ y: 65, rotate: 12 }}
                 transition={{ type: "spring", stiffness: 180, damping: 18, delay: 0.15 }}
-                className="w-36 h-18 rounded-b-full shadow-2xl relative overflow-hidden border-b-2 border-amber-700"
+                className="w-36 h-[72px] rounded-b-full shadow-2xl relative overflow-hidden border-b-2 border-amber-700"
                 style={{
                   background: 'radial-gradient(circle at 50% 80%, #ffffff 0%, #fbbf24 30%, #b45309 80%, #451a03 100%)',
                   boxShadow: '0 15px 30px rgba(0, 0, 0, 0.6), inset 0 -3px 6px rgba(0,0,0,0.4)'
@@ -218,18 +221,33 @@ export const GlassBowlLotteryVisualizer: React.FC<GlassBowlLotteryVisualizerProp
                 </span>
               </div>
 
-              {/* Admin Placement Confirmation Button */}
+              {/* Admin Action Buttons: Batal/Undi Ulang & Kunci */}
               {isAdmin && (
-                <motion.button
+                <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 }}
-                  onClick={onConfirmSlot}
-                  className="mt-5 w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-sm shadow-xl shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                  transition={{ delay: 0.5 }}
+                  className="mt-5 w-full flex flex-col sm:flex-row items-center gap-2.5"
                 >
-                  <CheckCircle2 className="w-5 h-5" />
-                  <span>Kunci & Munculkan di Bagan</span>
-                </motion.button>
+                  <button
+                    type="button"
+                    onClick={onCancelDraw}
+                    className="w-full sm:w-2/5 py-3.5 px-4 rounded-xl bg-slate-200 hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-300 hover:border-rose-300 font-bold text-xs flex items-center justify-center space-x-1.5 transition-all shadow-sm cursor-pointer"
+                    title="Batalkan hasil undian ini dan kembali ke mangkuk bola kaca untuk diundi ulang"
+                  >
+                    <RotateCcw className="w-4 h-4 text-rose-600" />
+                    <span>Batal / Undi Ulang</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={onConfirmSlot}
+                    className="w-full sm:w-3/5 py-3.5 px-5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-500 hover:to-teal-600 text-white font-black text-xs sm:text-sm shadow-xl shadow-emerald-600/30 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Kunci & Munculkan di Bagan</span>
+                  </button>
+                </motion.div>
               )}
             </motion.div>
           </motion.div>

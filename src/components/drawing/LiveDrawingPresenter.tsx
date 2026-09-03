@@ -214,6 +214,21 @@ export const LiveDrawingPresenter: React.FC<LiveDrawingPresenterProps> = ({
     setSelectedSlotId(null); // Reset selection to next available slot
   };
 
+  const handleCancelDraw = async () => {
+    if (!isAdmin) return;
+    if (soundEnabled) playSoundEffect('click');
+
+    await tournamentService.updateDrawingSession(tournamentId, {
+      status: 'idle',
+      currentTeam: null,
+      currentSlot: null,
+      isRevealed: false,
+      message: undefined
+    });
+
+    setConflictWarning(null);
+  };
+
   const handleResetDraw = async () => {
     if (!isAdmin) return;
     const confirmReset = window.confirm(
@@ -306,6 +321,7 @@ export const LiveDrawingPresenter: React.FC<LiveDrawingPresenterProps> = ({
                 currentSlotLabel={currentSlotLabel}
                 isAdmin={isAdmin}
                 onConfirmSlot={handleConfirmSlot}
+                onCancelDraw={handleCancelDraw}
                 statusMessage={session?.message}
               />
             ) : null}
