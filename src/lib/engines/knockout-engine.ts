@@ -234,7 +234,7 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
     winnerTeamId: null,
     loserTeamId: null,
     nextMatchId: 'M-13',
-    isNextHome: false,
+    isNextHome: true,
     nextLoserMatchId: null,
     scheduledDate: startDate,
     startTime: '',
@@ -242,7 +242,7 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
     pitch: pitches[0] || 'Lapangan 1',
     status: 'scheduled',
     roundIndex: 1,
-    bracketPosition: 3
+    bracketPosition: 2
   };
 
   const m6: Match = {
@@ -297,7 +297,7 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
     winnerTeamId: null,
     loserTeamId: null,
     nextMatchId: 'M-13',
-    isNextHome: true,
+    isNextHome: false,
     nextLoserMatchId: null,
     scheduledDate: addDaysToDate(startDate, 1),
     startTime: '',
@@ -305,7 +305,7 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
     pitch: pitches[1 % pitches.length] || 'Lapangan 1',
     status: 'scheduled',
     roundIndex: 1,
-    bracketPosition: 2
+    bracketPosition: 3
   };
 
   const m9: Match = {
@@ -398,8 +398,8 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
     tournamentId,
     matchNumber: 13,
     stage: 'quarter_final',
-    homeTeam: emptySlot('Menang M8'),
-    awayTeam: emptySlot('Menang M5'),
+    homeTeam: emptySlot('Menang M5'),
+    awayTeam: emptySlot('Menang M8'),
     winnerTeamId: null,
     loserTeamId: null,
     nextMatchId: 'M-16',

@@ -260,25 +260,22 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
                   </div>
                 </div>
 
-                {/* Section 1B: M2 & M8 & M5 -> M13 */}
+                {/* Section 1B: M5 & M2+M8 -> M13 (dilukir M5 di atas, M8 & M2 di bawah) */}
                 <div className="grid grid-cols-5 gap-4 items-center pt-3 border-t border-slate-800/60">
-                  {/* Col 1: Playoff M2 (Undian 6 vs 7) */}
+                  {/* Col 1: Direct spacer on top, Playoff M2 on bottom */}
                   <div className="space-y-2">
+                    <div className="h-16 flex items-center justify-center border-b border-dashed border-slate-800/60 mb-2">
+                      <span className="text-[10px] text-slate-600 font-medium">
+                        Direct 16 Besar (Tanpa Playoff)
+                      </span>
+                    </div>
                     <SlotCell slotNum={6} slot={getSlot(m2, 'home')} />
                     <MatchButton match={m2} label="M#2 (Playoff)" onClick={() => setSelectedMatch(m2 || null)} />
                     <SlotCell slotNum={7} slot={getSlot(m2, 'away')} />
                   </div>
 
-                  {/* Col 2: 16 Besar M8 (Menang M2 vs Undian 8) & M5 (Undian 9 vs 10) */}
+                  {/* Col 2: 16 Besar M5 (Undian 9 vs 10) di atas & M8 (Menang M2 vs Undian 8) di bawah */}
                   <div className="space-y-3">
-                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                      <div className="text-[10px] text-slate-400 mb-1">M#8 (16 Besar)</div>
-                      <div className="font-semibold text-white truncate text-[11px]">{m8?.homeTeam.name || 'Menang M2'}</div>
-                      <div className="text-[10px] text-slate-500">vs</div>
-                      <SlotCell slotNum={8} slot={getSlot(m8, 'away')} compact isSeed seedRank={4} />
-                      <MatchScoreBadge match={m8} onClick={() => setSelectedMatch(m8 || null)} />
-                    </div>
-
                     <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
                       <div className="text-[10px] text-slate-400 mb-1">M#5 (16 Besar)</div>
                       <SlotCell slotNum={9} slot={getSlot(m5, 'home')} compact />
@@ -286,15 +283,23 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
                       <SlotCell slotNum={10} slot={getSlot(m5, 'away')} compact />
                       <MatchScoreBadge match={m5} onClick={() => setSelectedMatch(m5 || null)} />
                     </div>
+
+                    <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                      <div className="text-[10px] text-slate-400 mb-1">M#8 (16 Besar)</div>
+                      <div className="font-semibold text-white truncate text-[11px]">{m8?.homeTeam.name || 'Menang M2'}</div>
+                      <div className="text-[10px] text-slate-500">vs</div>
+                      <SlotCell slotNum={8} slot={getSlot(m8, 'away')} compact isSeed seedRank={4} />
+                      <MatchScoreBadge match={m8} onClick={() => setSelectedMatch(m8 || null)} />
+                    </div>
                   </div>
 
-                  {/* Col 3: Perempat Final M13 (Menang M8 vs Menang M5) */}
+                  {/* Col 3: Perempat Final M13 (Menang M5 vs Menang M8) */}
                   <div>
                     <div className="p-3 rounded-xl bg-slate-900 border-2 border-cyan-500/40 shadow-lg shadow-cyan-500/10">
                       <div className="text-[10px] font-bold text-cyan-400 mb-1">M#13 (8 Besar QF 2)</div>
-                      <div className="text-white font-semibold truncate text-[11px]">{m13?.homeTeam.name || 'Menang M8'}</div>
+                      <div className="text-white font-semibold truncate text-[11px]">{m13?.homeTeam.name || 'Menang M5'}</div>
                       <div className="text-[10px] text-slate-500 my-1">vs</div>
-                      <div className="text-white font-semibold truncate text-[11px]">{m13?.awayTeam.name || 'Menang M5'}</div>
+                      <div className="text-white font-semibold truncate text-[11px]">{m13?.awayTeam.name || 'Menang M8'}</div>
                       <MatchScoreBadge match={m13} onClick={() => setSelectedMatch(m13 || null)} />
                     </div>
                   </div>
