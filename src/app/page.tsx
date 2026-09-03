@@ -68,27 +68,27 @@ const DEFAULT_TOURNAMENT: Tournament = {
   createdAt: Date.now()
 };
 
-// Initial 19 teams preloaded for Dies Natalis UMS 2026
+// Initial 19 teams preloaded for Dies Natalis UMS 2026 with 4 Patent Seeds
 const INITIAL_19_TEAMS: Team[] = [
-  { id: 't-1', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Kedokteran FC', officialName: 'dr. Budi', departmentOrigin: 'Fakultas Kedokteran', potTier: 1, seedNumber: 1, drawnSlot: 1 },
-  { id: 't-2', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FKIP Juara', officialName: 'Prof. Sutrisno', departmentOrigin: 'FKIP', potTier: 1, seedNumber: 2, drawnSlot: 16 },
-  { id: 't-3', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Teknik Mesin', officialName: 'Ir. Joko', departmentOrigin: 'Fakultas Teknik', potTier: 1, seedNumber: 3, drawnSlot: 9 },
-  { id: 't-4', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Farmasi Hebat', officialName: 'apt. Dian', departmentOrigin: 'Fakultas Farmasi', potTier: 1, seedNumber: 4, drawnSlot: 8 },
-  { id: 't-5', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FEB United', officialName: 'Dr. Rahman', departmentOrigin: 'Fakultas Ekonomi Bisnis', potTier: 2, seedNumber: null, drawnSlot: null },
-  { id: 't-6', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Psikologi FC', officialName: 'M. Ridwan M.Psi', departmentOrigin: 'Fakultas Psikologi', potTier: 2, seedNumber: null, drawnSlot: null },
-  { id: 't-7', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Hukum Perkasa', officialName: 'Dr. Hartono S.H', departmentOrigin: 'Fakultas Hukum', potTier: 2, seedNumber: null, drawnSlot: null },
-  { id: 't-8', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FIK All-Star', officialName: 'Nurul M.Kes', departmentOrigin: 'Fak. Ilmu Kesehatan', potTier: 2, seedNumber: null, drawnSlot: null },
-  { id: 't-9', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FAI Soccer', officialName: 'Drs. Abdullah', departmentOrigin: 'Fak. Agama Islam', potTier: 2, seedNumber: null, drawnSlot: null },
-  { id: 't-10', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Geografi FC', officialName: 'Tri Wahyuni M.Sc', departmentOrigin: 'Fakultas Geografi', potTier: 2, seedNumber: null, drawnSlot: null },
-  { id: 't-11', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FKI Cyber', officialName: 'Gunawan M.Kom', departmentOrigin: 'Fak. Komunikasi & Informatika', potTier: 3, seedNumber: null, drawnSlot: null },
-  { id: 't-12', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Pascasarjana FC', officialName: 'Dr. Anwar', departmentOrigin: 'Sekolah Pascasarjana', potTier: 3, seedNumber: null, drawnSlot: null },
-  { id: 't-13', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Biro Rektorat', officialName: 'Bambang S.Sos', departmentOrigin: 'Biro Rektorat', potTier: 3, seedNumber: null, drawnSlot: null },
-  { id: 't-14', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Biro Keuangan', officialName: 'Supardi S.E', departmentOrigin: 'Biro Administrasi Umum', potTier: 3, seedNumber: null, drawnSlot: null },
-  { id: 't-15', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Perpustakaan FC', officialName: 'Sri Lestari S.I.Pust', departmentOrigin: 'Perpustakaan', potTier: 3, seedNumber: null, drawnSlot: null },
-  { id: 't-16', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Pesma KH Mas Mansur', officialName: 'Ust. Farhan', departmentOrigin: 'Pesma', potTier: 3, seedNumber: null, drawnSlot: null },
-  { id: 't-17', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Security UMS FC', officialName: 'Danang', departmentOrigin: 'Satpam Kampus', potTier: 3, seedNumber: null, drawnSlot: null },
-  { id: 't-18', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Cleaning Service FC', officialName: 'Slamet', departmentOrigin: 'Sarana Prasarana', potTier: 3, seedNumber: null, drawnSlot: null },
-  { id: 't-19', tournamentId: DEFAULT_TOURNAMENT.id, name: 'KSR / Relawan Kampus', officialName: 'Ahmad M.Pd', departmentOrigin: 'Unit Kegiatan Mahasiswa', potTier: 3, seedNumber: null, drawnSlot: null }
+  { id: 't-1', tournamentId: DEFAULT_TOURNAMENT.id, name: 'SATPAM UNITED', officialName: 'Danang', departmentOrigin: 'Unit Keamanan UMS', potTier: 1, seedNumber: 1, drawnSlot: 3 },
+  { id: 't-2', tournamentId: DEFAULT_TOURNAMENT.id, name: 'PARKIR UNITED', officialName: 'Agus', departmentOrigin: 'Unit Parkir UMS', potTier: 1, seedNumber: 2, drawnSlot: 19 },
+  { id: 't-3', tournamentId: DEFAULT_TOURNAMENT.id, name: 'CAKAP FC', officialName: 'Prof. Sutrisno', departmentOrigin: 'FKIP UMS', potTier: 1, seedNumber: 3, drawnSlot: 11 },
+  { id: 't-4', tournamentId: DEFAULT_TOURNAMENT.id, name: 'DASP + Outsourcing', officialName: 'Slamet', departmentOrigin: 'Sarana Prasarana', potTier: 1, seedNumber: 4, drawnSlot: 8 },
+  { id: 't-5', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Kedokteran FC', officialName: 'dr. Budi', departmentOrigin: 'Fakultas Kedokteran', potTier: 2, seedNumber: null, drawnSlot: null },
+  { id: 't-6', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Teknik Mesin', officialName: 'Ir. Joko', departmentOrigin: 'Fakultas Teknik', potTier: 2, seedNumber: null, drawnSlot: null },
+  { id: 't-7', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Farmasi Hebat', officialName: 'apt. Dian', departmentOrigin: 'Fakultas Farmasi', potTier: 2, seedNumber: null, drawnSlot: null },
+  { id: 't-8', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FEB United', officialName: 'Dr. Rahman', departmentOrigin: 'Fakultas Ekonomi Bisnis', potTier: 2, seedNumber: null, drawnSlot: null },
+  { id: 't-9', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Psikologi FC', officialName: 'M. Ridwan M.Psi', departmentOrigin: 'Fakultas Psikologi', potTier: 2, seedNumber: null, drawnSlot: null },
+  { id: 't-10', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Hukum Perkasa', officialName: 'Dr. Hartono S.H', departmentOrigin: 'Fakultas Hukum', potTier: 2, seedNumber: null, drawnSlot: null },
+  { id: 't-11', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FIK All-Star', officialName: 'Nurul M.Kes', departmentOrigin: 'Fak. Ilmu Kesehatan', potTier: 2, seedNumber: null, drawnSlot: null },
+  { id: 't-12', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FAI Soccer', officialName: 'Drs. Abdullah', departmentOrigin: 'Fak. Agama Islam', potTier: 2, seedNumber: null, drawnSlot: null },
+  { id: 't-13', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Geografi FC', officialName: 'Tri Wahyuni M.Sc', departmentOrigin: 'Fakultas Geografi', potTier: 2, seedNumber: null, drawnSlot: null },
+  { id: 't-14', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FKI Cyber', officialName: 'Gunawan M.Kom', departmentOrigin: 'Fak. Komunikasi & Informatika', potTier: 3, seedNumber: null, drawnSlot: null },
+  { id: 't-15', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Pascasarjana FC', officialName: 'Dr. Anwar', departmentOrigin: 'Sekolah Pascasarjana', potTier: 3, seedNumber: null, drawnSlot: null },
+  { id: 't-16', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Biro Rektorat', officialName: 'Bambang S.Sos', departmentOrigin: 'Biro Rektorat', potTier: 3, seedNumber: null, drawnSlot: null },
+  { id: 't-17', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Biro Keuangan', officialName: 'Supardi S.E', departmentOrigin: 'Biro Administrasi Umum', potTier: 3, seedNumber: null, drawnSlot: null },
+  { id: 't-18', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Perpustakaan FC', officialName: 'Sri Lestari S.I.Pust', departmentOrigin: 'Perpustakaan', potTier: 3, seedNumber: null, drawnSlot: null },
+  { id: 't-19', tournamentId: DEFAULT_TOURNAMENT.id, name: 'EDUTORIUM', officialName: 'Edutorium', departmentOrigin: 'Unit Edutorium UMS', potTier: 3, seedNumber: null, drawnSlot: null }
 ];
 
 export default function TournamentDashboard() {

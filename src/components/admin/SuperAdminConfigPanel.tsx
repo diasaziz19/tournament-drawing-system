@@ -45,12 +45,15 @@ interface SuperAdminConfigPanelProps {
 
 const PRESET_COUNTS = [8, 12, 16, 18, 19, 20, 24, 32];
 
-// Preset 19 Tim Minisoccer Dies Natalis UMS 2026
+// Preset 19 Tim Minisoccer Dies Natalis UMS 2026 with 4 Patent Seeds
 const UMS_19_TEAMS_PRESET: Omit<Team, 'id' | 'tournamentId' | 'drawnSlot'>[] = [
-  { name: 'Kedokteran FC', officialName: 'dr. Budi', departmentOrigin: 'Fakultas Kedokteran', potTier: 1, seedNumber: 1 },
-  { name: 'FKIP Juara', officialName: 'Prof. Sutrisno', departmentOrigin: 'FKIP', potTier: 1, seedNumber: 2 },
-  { name: 'Teknik Mesin', officialName: 'Ir. Joko', departmentOrigin: 'Fakultas Teknik', potTier: 1, seedNumber: 3 },
-  { name: 'Farmasi Hebat', officialName: 'apt. Dian', departmentOrigin: 'Fakultas Farmasi', potTier: 1, seedNumber: 4 },
+  { name: 'SATPAM UNITED', officialName: 'Danang', departmentOrigin: 'Unit Keamanan UMS', potTier: 1, seedNumber: 1 },
+  { name: 'PARKIR UNITED', officialName: 'Agus', departmentOrigin: 'Unit Parkir UMS', potTier: 1, seedNumber: 2 },
+  { name: 'CAKAP FC', officialName: 'Prof. Sutrisno', departmentOrigin: 'FKIP UMS', potTier: 1, seedNumber: 3 },
+  { name: 'DASP + Outsourcing', officialName: 'Slamet', departmentOrigin: 'Sarana Prasarana', potTier: 1, seedNumber: 4 },
+  { name: 'Kedokteran FC', officialName: 'dr. Budi', departmentOrigin: 'Fakultas Kedokteran', potTier: 2, seedNumber: null },
+  { name: 'Teknik Mesin', officialName: 'Ir. Joko', departmentOrigin: 'Fakultas Teknik', potTier: 2, seedNumber: null },
+  { name: 'Farmasi Hebat', officialName: 'apt. Dian', departmentOrigin: 'Fakultas Farmasi', potTier: 2, seedNumber: null },
   { name: 'FEB United', officialName: 'Dr. Rahman', departmentOrigin: 'Fakultas Ekonomi Bisnis', potTier: 2, seedNumber: null },
   { name: 'Psikologi FC', officialName: 'M. Ridwan M.Psi', departmentOrigin: 'Fakultas Psikologi', potTier: 2, seedNumber: null },
   { name: 'Hukum Perkasa', officialName: 'Dr. Hartono S.H', departmentOrigin: 'Fakultas Hukum', potTier: 2, seedNumber: null },
@@ -62,10 +65,7 @@ const UMS_19_TEAMS_PRESET: Omit<Team, 'id' | 'tournamentId' | 'drawnSlot'>[] = [
   { name: 'Biro Rektorat', officialName: 'Bambang S.Sos', departmentOrigin: 'Biro Rektorat', potTier: 3, seedNumber: null },
   { name: 'Biro Keuangan', officialName: 'Supardi S.E', departmentOrigin: 'Biro Administrasi Umum', potTier: 3, seedNumber: null },
   { name: 'Perpustakaan FC', officialName: 'Sri Lestari S.I.Pust', departmentOrigin: 'Perpustakaan', potTier: 3, seedNumber: null },
-  { name: 'Pesma KH Mas Mansur', officialName: 'Ust. Farhan', departmentOrigin: 'Pesma', potTier: 3, seedNumber: null },
-  { name: 'Security UMS FC', officialName: 'Danang', departmentOrigin: 'Satpam Kampus', potTier: 3, seedNumber: null },
-  { name: 'Cleaning Service FC', officialName: 'Slamet', departmentOrigin: 'Sarana Prasarana', potTier: 3, seedNumber: null },
-  { name: 'KSR / Relawan Kampus', officialName: 'Ahmad M.Pd', departmentOrigin: 'Unit Kegiatan Mahasiswa', potTier: 3, seedNumber: null }
+  { name: 'EDUTORIUM', officialName: 'Edutorium', departmentOrigin: 'Unit Edutorium UMS', potTier: 3, seedNumber: null }
 ];
 
 export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
@@ -117,25 +117,46 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     if (initializedSeedsRef.current) return;
     if (teams.length === 0) return;
 
-    // Check if EDUTORIUM is mistakenly flagged as seed or Pot 1
+    // Patent 4 Seeds definitions:
+    // 1. SATPAM UNITED (Juara 1)
+    const satpam = teams.find(t => t.name.toUpperCase().includes('SATPAM') || t.departmentOrigin.toUpperCase().includes('KEAMANAN'));
+    // 2. PARKIR UNITED (Juara 2)
+    const parkir = teams.find(t => t.name.toUpperCase().includes('PARKIR'));
+    // 3. CAKAP FC (Juara 3)
+    const cakap = teams.find(t => t.name.toUpperCase().includes('CAKAP') || t.name.toUpperCase().includes('FKIP'));
+    // 4. DASP + Outsourcing (Juara 4)
+    const dasp = teams.find(t => t.name.toUpperCase().includes('DASP') || t.name.toUpperCase().includes('OUTSOURCING') || t.departmentOrigin.toUpperCase().includes('SARANA') || t.departmentOrigin.toUpperCase().includes('SARPRAS') || t.departmentOrigin.toUpperCase().includes('DASP'));
+    // Debutan: EDUTORIUM
     const edutorium = teams.find(t => t.name.toUpperCase().includes('EDUTORIUM'));
-    if (edutorium && (edutorium.seedNumber !== null || edutorium.potTier !== 3)) {
-      const corrected = teams.map(t => {
-        if (t.id === edutorium.id) {
-          return { ...t, potTier: 3 as const, seedNumber: null, drawnSlot: null };
-        }
+
+    // Check if auto-fix is needed for any of the 4 patent seeds or Edutorium
+    const needsSeedSanitize = (
+      (satpam && (satpam.seedNumber !== 1 || satpam.potTier !== 1)) ||
+      (parkir && (parkir.seedNumber !== 2 || parkir.potTier !== 1)) ||
+      (cakap && (cakap.seedNumber !== 3 || cakap.potTier !== 1)) ||
+      (dasp && (dasp.seedNumber !== 4 || dasp.potTier !== 1)) ||
+      (edutorium && (edutorium.seedNumber !== null || edutorium.potTier !== 3))
+    );
+
+    if (needsSeedSanitize) {
+      const sanitized = teams.map(t => {
+        if (satpam && t.id === satpam.id) return { ...t, potTier: 1 as const, seedNumber: 1, drawnSlot: t.drawnSlot || 3 };
+        if (parkir && t.id === parkir.id) return { ...t, potTier: 1 as const, seedNumber: 2, drawnSlot: t.drawnSlot || 19 };
+        if (cakap && t.id === cakap.id) return { ...t, potTier: 1 as const, seedNumber: 3, drawnSlot: t.drawnSlot || 11 };
+        if (dasp && t.id === dasp.id) return { ...t, potTier: 1 as const, seedNumber: 4, drawnSlot: t.drawnSlot || 8 };
+        if (edutorium && t.id === edutorium.id) return { ...t, potTier: 3 as const, seedNumber: null, drawnSlot: null };
         return t;
       });
-      setRoster(corrected);
-      tournamentService.batchSaveTeams(tournament.id, corrected).catch(() => {});
+      setRoster(sanitized);
+      tournamentService.batchSaveTeams(tournament.id, sanitized).catch(() => {});
     }
 
     const isSeedEligible = (t: Team) => !t.name.toUpperCase().includes('EDUTORIUM') && t.potTier !== 3;
 
-    const s1 = teams.find(t => t.seedNumber === 1 && isSeedEligible(t));
-    const s2 = teams.find(t => t.seedNumber === 2 && isSeedEligible(t));
-    const s3 = teams.find(t => t.seedNumber === 3 && isSeedEligible(t));
-    const s4 = teams.find(t => t.seedNumber === 4 && isSeedEligible(t));
+    const s1 = satpam || teams.find(t => t.seedNumber === 1 && isSeedEligible(t));
+    const s2 = parkir || teams.find(t => t.seedNumber === 2 && isSeedEligible(t));
+    const s3 = cakap || teams.find(t => t.seedNumber === 3 && isSeedEligible(t));
+    const s4 = dasp || teams.find(t => t.seedNumber === 4 && isSeedEligible(t));
 
     if (s1) {
       setSeed1TeamId(s1.id);
