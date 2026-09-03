@@ -68,12 +68,12 @@ const DEFAULT_TOURNAMENT: Tournament = {
   createdAt: Date.now()
 };
 
-// Initial 18 teams preloaded
-const INITIAL_18_TEAMS: Team[] = [
-  { id: 't-1', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Kedokteran FC', officialName: 'dr. Budi', departmentOrigin: 'Fakultas Kedokteran', potTier: 1, seedNumber: 1, drawnSlot: null },
-  { id: 't-2', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FKIP Juara', officialName: 'Prof. Sutrisno', departmentOrigin: 'FKIP', potTier: 1, seedNumber: 2, drawnSlot: null },
-  { id: 't-3', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Teknik Mesin', officialName: 'Ir. Joko', departmentOrigin: 'Fakultas Teknik', potTier: 1, seedNumber: 3, drawnSlot: null },
-  { id: 't-4', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Farmasi Hebat', officialName: 'apt. Dian', departmentOrigin: 'Fakultas Farmasi', potTier: 1, seedNumber: 4, drawnSlot: null },
+// Initial 19 teams preloaded for Dies Natalis UMS 2026
+const INITIAL_19_TEAMS: Team[] = [
+  { id: 't-1', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Kedokteran FC', officialName: 'dr. Budi', departmentOrigin: 'Fakultas Kedokteran', potTier: 1, seedNumber: 1, drawnSlot: 1 },
+  { id: 't-2', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FKIP Juara', officialName: 'Prof. Sutrisno', departmentOrigin: 'FKIP', potTier: 1, seedNumber: 2, drawnSlot: 16 },
+  { id: 't-3', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Teknik Mesin', officialName: 'Ir. Joko', departmentOrigin: 'Fakultas Teknik', potTier: 1, seedNumber: 3, drawnSlot: 9 },
+  { id: 't-4', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Farmasi Hebat', officialName: 'apt. Dian', departmentOrigin: 'Fakultas Farmasi', potTier: 1, seedNumber: 4, drawnSlot: 8 },
   { id: 't-5', tournamentId: DEFAULT_TOURNAMENT.id, name: 'FEB United', officialName: 'Dr. Rahman', departmentOrigin: 'Fakultas Ekonomi Bisnis', potTier: 2, seedNumber: null, drawnSlot: null },
   { id: 't-6', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Psikologi FC', officialName: 'M. Ridwan M.Psi', departmentOrigin: 'Fakultas Psikologi', potTier: 2, seedNumber: null, drawnSlot: null },
   { id: 't-7', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Hukum Perkasa', officialName: 'Dr. Hartono S.H', departmentOrigin: 'Fakultas Hukum', potTier: 2, seedNumber: null, drawnSlot: null },
@@ -87,12 +87,13 @@ const INITIAL_18_TEAMS: Team[] = [
   { id: 't-15', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Perpustakaan FC', officialName: 'Sri Lestari S.I.Pust', departmentOrigin: 'Perpustakaan', potTier: 3, seedNumber: null, drawnSlot: null },
   { id: 't-16', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Pesma KH Mas Mansur', officialName: 'Ust. Farhan', departmentOrigin: 'Pesma', potTier: 3, seedNumber: null, drawnSlot: null },
   { id: 't-17', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Security UMS FC', officialName: 'Danang', departmentOrigin: 'Satpam Kampus', potTier: 3, seedNumber: null, drawnSlot: null },
-  { id: 't-18', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Cleaning Service FC', officialName: 'Slamet', departmentOrigin: 'Sarana Prasarana', potTier: 3, seedNumber: null, drawnSlot: null }
+  { id: 't-18', tournamentId: DEFAULT_TOURNAMENT.id, name: 'Cleaning Service FC', officialName: 'Slamet', departmentOrigin: 'Sarana Prasarana', potTier: 3, seedNumber: null, drawnSlot: null },
+  { id: 't-19', tournamentId: DEFAULT_TOURNAMENT.id, name: 'KSR / Relawan Kampus', officialName: 'Ahmad M.Pd', departmentOrigin: 'Unit Kegiatan Mahasiswa', potTier: 3, seedNumber: null, drawnSlot: null }
 ];
 
 export default function TournamentDashboard() {
   const [tournament, setTournament] = useState<Tournament>(DEFAULT_TOURNAMENT);
-  const [teams, setTeams] = useState<Team[]>(INITIAL_18_TEAMS);
+  const [teams, setTeams] = useState<Team[]>(INITIAL_19_TEAMS);
   const [matches, setMatches] = useState<Match[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [drawingSession, setDrawingSession] = useState<DrawingSession | null>(null);

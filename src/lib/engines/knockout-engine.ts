@@ -2,13 +2,15 @@
  * Pure Knockout Engine (Single Elimination)
  * Features:
  * - Non-power-of-two irregular team handling (17, 18, 19, 21, etc.)
+ * - Slot-by-slot live drawing mapping: Slots update in realtime as teams are drawn
+ * - 4 Seeded teams manual plotting support (Juara 1, 2, 3, 4 tahun lalu)
  * - Automatic Byes & Preliminary Playoff rounds calculation
  * - 3rd place playoff match linkage (perebutan juara 3)
  * - Schedule Rest Engine: Enforces "Max 1 match/day per team" constraint
  * - Dynamic winner & loser propagation across the bracket tree
  */
 
-import { Match, MatchStage, Team, TeamMatchSlot, Tournament } from '../../types/tournament';
+import { Match, MatchStage, Team, TeamMatchSlot } from '../../types/tournament';
 
 export interface KnockoutBracketConfig {
   tournamentId: string;
@@ -37,10 +39,9 @@ export interface KnockoutCalculationResult {
  */
 export function calculateBracketStructure(teamCount: number, hasThirdPlace: boolean = true): KnockoutCalculationResult {
   if (teamCount < 2) {
-    throw new Error('Tournament requires at least 2 teams');
+    throw new Error('Turnamen membutuhkan minimal 2 tim');
   }
 
-  // Find nearest lower power of two: P = 2^(floor(log2(N)))
   const floorPower = Math.pow(2, Math.floor(Math.log2(teamCount)));
   const isPowerOfTwo = (teamCount & (teamCount - 1)) === 0;
 
@@ -50,14 +51,12 @@ export function calculateBracketStructure(teamCount: number, hasThirdPlace: bool
   let byeTeamsCount = teamCount;
 
   if (!isPowerOfTwo) {
-    // Number of preliminary playoff matches = N - P
     playoffMatchesCount = teamCount - floorPower;
     playoffTeamsCount = playoffMatchesCount * 2;
     byeTeamsCount = teamCount - playoffTeamsCount;
     nearestPowerOfTwo = floorPower;
   }
 
-  // Total matches in single elimination = N - 1 (+ 1 if 3rd place playoff)
   const totalMatchesCount = (teamCount - 1) + (hasThirdPlace && teamCount >= 4 ? 1 : 0);
 
   const stagesPresent: MatchStage[] = [];
@@ -97,31 +96,6 @@ export function getStageTitle(stage: MatchStage): string {
 }
 
 /**
- * Standard tournament seeded slot distribution
- * Generates slot pairing for a power-of-two bracket (e.g. 1 vs 16, 8 vs 9, etc.)
- */
-export function getSeededPairings(bracketSize: number): [number, number][] {
-  let rounds = Math.log2(bracketSize);
-  let list = [1, 2];
-
-  for (let r = 1; r < rounds; r++) {
-    const nextList: number[] = [];
-    const sum = Math.pow(2, r + 1) + 1;
-    for (let i = 0; i < list.length; i++) {
-      nextList.push(list[i]);
-      nextList.push(sum - list[i]);
-    }
-    list = nextList;
-  }
-
-  const pairings: [number, number][] = [];
-  for (let i = 0; i < list.length; i += 2) {
-    pairings.push([list[i], list[i + 1]]);
-  }
-  return pairings;
-}
-
-/**
  * Format helper for time calculations
  */
 function addMinutesToTime(timeStr: string, minutesToAdd: number): string {
@@ -139,7 +113,77 @@ function addDaysToDate(dateStr: string, daysToAdd: number): string {
 }
 
 /**
- * Generates full balanced knockout bracket matches with tree linkages and schedule rest enforcement
+ * Slot Definition for dynamic live drawing placement
+ */
+export interface BracketSlotInfo {
+  slotId: number;
+  label: string;
+  stage: 'playoff' | 'round_of_16';
+  isSeedSlot?: boolean;
+  seedRank?: 1 | 2 | 3 | 4;
+}
+
+/**
+ * Returns available slot definitions for drawing for a given team count
+ */
+export function getAvailableBracketSlots(teamCount: number): BracketSlotInfo[] {
+  const structure = calculateBracketStructure(teamCount);
+  const slots: BracketSlotInfo[] = [];
+
+  // 1. Seeded & Direct Bye Slots in Round of 16 (for P=16)
+  // Standard positions for Seeds 1, 2, 3, 4
+  // Seed 1: Slot 1 (Match 1 Home)
+  // Seed 2: Slot 16 (Match 8 Away)
+  // Seed 3: Slot 9 (Match 5 Home)
+  // Seed 4: Slot 8 (Match 4 Away)
+
+  // Playoff feeds are located at non-seed slots: e.g. Match 2 Away (Slot 4), Match 4 Home (Slot 7), Match 6 Away (Slot 12)
+  const playoffTargetSlots = [4, 7, 12, 14, 2, 10, 6, 15].slice(0, structure.playoffMatchesCount);
+  const playoffTargetSet = new Set(playoffTargetSlots);
+
+  // R16 Slots (1 to 16)
+  for (let s = 1; s <= 16; s++) {
+    if (playoffTargetSet.has(s)) {
+      continue; // This slot is fed by a playoff match winner
+    }
+    let isSeed = false;
+    let seedRank: 1 | 2 | 3 | 4 | undefined;
+    if (s === 1) { isSeed = true; seedRank = 1; }
+    else if (s === 16) { isSeed = true; seedRank = 2; }
+    else if (s === 9) { isSeed = true; seedRank = 3; }
+    else if (s === 8) { isSeed = true; seedRank = 4; }
+
+    slots.push({
+      slotId: s,
+      label: isSeed ? `Slot #${s} (Unggulan ${seedRank})` : `Slot #${s} (16 Besar)`,
+      stage: 'round_of_16',
+      isSeedSlot: isSeed,
+      seedRank
+    });
+  }
+
+  // Playoff Slots (e.g. Playoff 1 Home/Away, Playoff 2 Home/Away, Playoff 3 Home/Away)
+  for (let p = 0; p < structure.playoffMatchesCount; p++) {
+    const pNum = p + 1;
+    const baseSlot = 100 + p * 2;
+    slots.push({
+      slotId: baseSlot + 1,
+      label: `Playoff ${pNum} - Tim Home`,
+      stage: 'playoff'
+    });
+    slots.push({
+      slotId: baseSlot + 2,
+      label: `Playoff ${pNum} - Tim Away`,
+      stage: 'playoff'
+    });
+  }
+
+  return slots;
+}
+
+/**
+ * Generates full balanced knockout bracket matches with tree linkages,
+ * slot-based team placement, and schedule rest enforcement
  */
 export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] {
   const {
@@ -153,17 +197,9 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
     hasThirdPlacePlayoff
   } = config;
 
-  const N = teams.length;
+  const N = Math.max(teams.length, 2);
   const structure = calculateBracketStructure(N, hasThirdPlacePlayoff);
-  const P = structure.nearestPowerOfTwo; // e.g. 16 for N=18
-  const matches: Match[] = [];
-
-  // Sort teams: priority to drawnSlot, then seedNumber, then potTier
-  const sortedTeams = [...teams].sort((a, b) => {
-    if (a.drawnSlot !== null && b.drawnSlot !== null) return a.drawnSlot - b.drawnSlot;
-    if (a.seedNumber !== null && b.seedNumber !== null) return a.seedNumber - b.seedNumber;
-    return a.potTier - b.potTier;
-  });
+  const P = structure.nearestPowerOfTwo; // 16 for N=17..31
 
   const emptySlot = (placeholder: string): TeamMatchSlot => ({
     id: null,
@@ -172,36 +208,54 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
     penaltyScore: null
   });
 
+  // Map teams by their assigned drawnSlot
+  const teamBySlot = new Map<number, Team>();
+  teams.forEach(t => {
+    if (t.drawnSlot !== null) {
+      teamBySlot.set(t.drawnSlot, t);
+    }
+  });
+
+  const getTeamForSlot = (slotNumber: number, placeholder: string): TeamMatchSlot => {
+    const team = teamBySlot.get(slotNumber);
+    if (team) {
+      return {
+        id: team.id,
+        name: team.name,
+        departmentOrigin: team.departmentOrigin,
+        score: null,
+        penaltyScore: null,
+        logoUrl: team.logoUrl
+      };
+    }
+    return emptySlot(placeholder);
+  };
+
   let matchCounter = 1;
-
-  // 1. Determine Playoff Matches (if irregular team count)
-  // Teams that play in the playoff are drawn from the lower seed / pot tier
-  const playoffMatchMap = new Map<number, { matchId: string; playoffNumber: number }>();
   const playoffMatches: Match[] = [];
+  const playoffMatchMap = new Map<number, { matchId: string; playoffNumber: number }>();
 
+  // 1. Determine Playoff Matches (if irregular team count like 19 teams)
   if (structure.playoffMatchesCount > 0) {
-    // Allocate playoff matches. For each playoff, 2 teams compete to qualify into a main round slot.
-    // The teams receiving byes are the top byeTeamsCount teams.
-    const playoffTeams = sortedTeams.slice(structure.byeTeamsCount, structure.byeTeamsCount + structure.playoffTeamsCount);
-
     for (let i = 0; i < structure.playoffMatchesCount; i++) {
       const matchId = `M-${String(matchCounter).padStart(2, '0')}`;
-      const home = playoffTeams[i * 2] || null;
-      const away = playoffTeams[i * 2 + 1] || null;
+      const baseSlot = 100 + i * 2;
+      const homeSlotId = baseSlot + 1;
+      const awaySlotId = baseSlot + 2;
 
       const playoffMatch: Match = {
         id: matchId,
         tournamentId,
         matchNumber: matchCounter++,
         stage: 'playoff',
-        homeTeam: home ? { id: home.id, name: home.name, departmentOrigin: home.departmentOrigin, score: null, penaltyScore: null, logoUrl: home.logoUrl } : emptySlot(`Playoff ${i + 1} Tim A`),
-        awayTeam: away ? { id: away.id, name: away.name, departmentOrigin: away.departmentOrigin, score: null, penaltyScore: null, logoUrl: away.logoUrl } : emptySlot(`Playoff ${i + 1} Tim B`),
+        homeTeam: getTeamForSlot(homeSlotId, `[Menunggu Undian Playoff ${i + 1}A]`),
+        awayTeam: getTeamForSlot(awaySlotId, `[Menunggu Undian Playoff ${i + 1}B]`),
         winnerTeamId: null,
         loserTeamId: null,
-        nextMatchId: null, // Will link to main round
-        isNextHome: false, // Will be assigned
+        nextMatchId: null,
+        isNextHome: false,
         nextLoserMatchId: null,
-        scheduledDate: startDate, // Playoff matches are strictly on Day 1
+        scheduledDate: startDate, // Playoff is strictly on Day 1
         startTime: '07:30',
         endTime: '08:00',
         pitch: pitches[i % pitches.length] || 'Lapangan 1',
@@ -214,13 +268,11 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
     }
   }
 
-  // 2. Build Main Tree from Final downwards to Round of P
-  // Number of rounds in main tree = log2(P)
+  // 2. Build Main Tree from Final downwards to Round of 16
   const mainRoundsCount = Math.log2(P);
-  // Rounds: e.g. for P=16 -> R16 (roundIndex 1), QF (2), SF (3), Final (4)
   const roundMatchesByStage: Record<string, Match[]> = {};
 
-  // Final Match
+  // Grand Final Match
   const finalMatchId = `M-${String(matchCounter).padStart(2, '0')}`;
   const finalMatch: Match = {
     id: finalMatchId,
@@ -243,7 +295,7 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
   };
   roundMatchesByStage['final'] = [finalMatch];
 
-  // 3rd Place Match (if enabled)
+  // 3rd Place Match (Perebutan Juara 3)
   let thirdPlaceMatch: Match | null = null;
   if (hasThirdPlacePlayoff && N >= 4) {
     const thirdMatchId = `M-${String(matchCounter).padStart(2, '0')}`;
@@ -295,142 +347,123 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
   }
   roundMatchesByStage['semi_final'] = sfMatches;
 
-  // Quarterfinals (4 matches) if P >= 8
-  if (P >= 8) {
-    const qfMatches: Match[] = [];
-    for (let i = 0; i < 4; i++) {
-      const qfId = `M-${String(matchCounter).padStart(2, '0')}`;
-      const parentSf = sfMatches[Math.floor(i / 2)];
-      qfMatches.push({
-        id: qfId,
-        tournamentId,
-        matchNumber: matchCounter++,
-        stage: 'quarter_final',
-        homeTeam: emptySlot(`Pemenang R16 Match ${i * 2 + 1}`),
-        awayTeam: emptySlot(`Pemenang R16 Match ${i * 2 + 2}`),
-        winnerTeamId: null,
-        loserTeamId: null,
-        nextMatchId: parentSf.id,
-        isNextHome: i % 2 === 0,
-        nextLoserMatchId: null,
-        scheduledDate: '',
-        startTime: '',
-        endTime: '',
-        pitch: pitches[i % pitches.length] || 'Lapangan 1',
-        status: 'scheduled',
-        roundIndex: mainRoundsCount - 2
-      });
-    }
-    roundMatchesByStage['quarter_final'] = qfMatches;
+  // Quarterfinals (4 matches)
+  const qfMatches: Match[] = [];
+  for (let i = 0; i < 4; i++) {
+    const qfId = `M-${String(matchCounter).padStart(2, '0')}`;
+    const parentSf = sfMatches[Math.floor(i / 2)];
+    qfMatches.push({
+      id: qfId,
+      tournamentId,
+      matchNumber: matchCounter++,
+      stage: 'quarter_final',
+      homeTeam: emptySlot(`Pemenang R16 Match ${i * 2 + 1}`),
+      awayTeam: emptySlot(`Pemenang R16 Match ${i * 2 + 2}`),
+      winnerTeamId: null,
+      loserTeamId: null,
+      nextMatchId: parentSf.id,
+      isNextHome: i % 2 === 0,
+      nextLoserMatchId: null,
+      scheduledDate: '',
+      startTime: '',
+      endTime: '',
+      pitch: pitches[i % pitches.length] || 'Lapangan 1',
+      status: 'scheduled',
+      roundIndex: mainRoundsCount - 2
+    });
   }
+  roundMatchesByStage['quarter_final'] = qfMatches;
 
-  // Round of 16 (8 matches) if P >= 16
-  if (P >= 16) {
-    const r16Matches: Match[] = [];
-    const parentQfs = roundMatchesByStage['quarter_final'] || [];
-    for (let i = 0; i < 8; i++) {
-      const r16Id = `M-${String(matchCounter).padStart(2, '0')}`;
-      const parentQf = parentQfs[Math.floor(i / 2)];
-      r16Matches.push({
-        id: r16Id,
-        tournamentId,
-        matchNumber: matchCounter++,
-        stage: 'round_of_16',
-        homeTeam: emptySlot(`Slot R16 ${i * 2 + 1}`),
-        awayTeam: emptySlot(`Slot R16 ${i * 2 + 2}`),
-        winnerTeamId: null,
-        loserTeamId: null,
-        nextMatchId: parentQf ? parentQf.id : null,
-        isNextHome: i % 2 === 0,
-        nextLoserMatchId: null,
-        scheduledDate: '',
-        startTime: '',
-        endTime: '',
-        pitch: pitches[i % pitches.length] || 'Lapangan 1',
-        status: 'scheduled',
-        roundIndex: 1
-      });
-    }
-    roundMatchesByStage['round_of_16'] = r16Matches;
-  }
+  // Round of 16 (8 matches)
+  const r16Matches: Match[] = [];
+  // Designate playoff feed slots:
+  // Playoff 1 feeds into Match 2 Away (Slot 4)
+  // Playoff 2 feeds into Match 4 Home (Slot 7)
+  // Playoff 3 feeds into Match 6 Away (Slot 12)
+  const playoffFeedAssignments = [
+    { matchIdx: 1, isHome: false, slotNum: 4 }, // Playoff 1 -> M2 Away
+    { matchIdx: 3, isHome: true, slotNum: 7 },  // Playoff 2 -> M4 Home
+    { matchIdx: 5, isHome: false, slotNum: 12 },// Playoff 3 -> M6 Away
+    { matchIdx: 6, isHome: false, slotNum: 14 },// Playoff 4 (if >19 teams)
+  ];
 
-  // 3. Assign Bye Teams and Link Playoff Winners into the First Main Round
-  const firstMainStageKey = P >= 16 ? 'round_of_16' : P >= 8 ? 'quarter_final' : 'semi_final';
-  const firstMainMatches = roundMatchesByStage[firstMainStageKey];
+  const playoffFeedsToUse = playoffFeedAssignments.slice(0, structure.playoffMatchesCount);
+  const playoffFeedLookup = new Map<string, number>();
+  playoffFeedsToUse.forEach((feed, idx) => {
+    playoffFeedLookup.set(`${feed.matchIdx}-${feed.isHome}`, idx);
+  });
 
-  // Distribute Playoff links into bottom slots of firstMainMatches
-  let playoffLinkIndex = 0;
-  let byeTeamIndex = 0;
+  for (let i = 0; i < 8; i++) {
+    const r16Id = `M-${String(matchCounter).padStart(2, '0')}`;
+    const parentQf = qfMatches[Math.floor(i / 2)];
+    const homeSlotNum = i * 2 + 1;
+    const awaySlotNum = i * 2 + 2;
 
-  for (let mIdx = 0; mIdx < firstMainMatches.length; mIdx++) {
-    const match = firstMainMatches[mIdx];
-
-    // Home Slot
-    if (playoffLinkIndex < structure.playoffMatchesCount && mIdx % 2 === 1) {
-      const pInfo = playoffMatchMap.get(playoffLinkIndex)!;
+    // Determine Home Slot
+    let homeSlotData: TeamMatchSlot;
+    const homePlayoffIdx = playoffFeedLookup.get(`${i}-true`);
+    if (homePlayoffIdx !== undefined) {
+      const pInfo = playoffMatchMap.get(homePlayoffIdx)!;
       const pMatch = playoffMatches.find(pm => pm.id === pInfo.matchId)!;
-      pMatch.nextMatchId = match.id;
+      pMatch.nextMatchId = r16Id;
       pMatch.isNextHome = true;
-      match.homeTeam = emptySlot(`Pemenang Playoff ${pInfo.playoffNumber}`);
-      playoffLinkIndex++;
+      homeSlotData = emptySlot(`Pemenang Playoff ${pInfo.playoffNumber}`);
     } else {
-      const byeTeam = sortedTeams[byeTeamIndex++];
-      if (byeTeam) {
-        match.homeTeam = {
-          id: byeTeam.id,
-          name: byeTeam.name,
-          departmentOrigin: byeTeam.departmentOrigin,
-          score: null,
-          penaltyScore: null,
-          logoUrl: byeTeam.logoUrl
-        };
-      }
+      const seedLabel = homeSlotNum === 1 ? ' (Unggulan 1)' : homeSlotNum === 9 ? ' (Unggulan 3)' : '';
+      homeSlotData = getTeamForSlot(homeSlotNum, `[Menunggu Undian Slot ${homeSlotNum}${seedLabel}]`);
     }
 
-    // Away Slot
-    if (playoffLinkIndex < structure.playoffMatchesCount) {
-      const pInfo = playoffMatchMap.get(playoffLinkIndex)!;
+    // Determine Away Slot
+    let awaySlotData: TeamMatchSlot;
+    const awayPlayoffIdx = playoffFeedLookup.get(`${i}-false`);
+    if (awayPlayoffIdx !== undefined) {
+      const pInfo = playoffMatchMap.get(awayPlayoffIdx)!;
       const pMatch = playoffMatches.find(pm => pm.id === pInfo.matchId)!;
-      pMatch.nextMatchId = match.id;
+      pMatch.nextMatchId = r16Id;
       pMatch.isNextHome = false;
-      match.awayTeam = emptySlot(`Pemenang Playoff ${pInfo.playoffNumber}`);
-      playoffLinkIndex++;
+      awaySlotData = emptySlot(`Pemenang Playoff ${pInfo.playoffNumber}`);
     } else {
-      const byeTeam = sortedTeams[byeTeamIndex++];
-      if (byeTeam) {
-        match.awayTeam = {
-          id: byeTeam.id,
-          name: byeTeam.name,
-          departmentOrigin: byeTeam.departmentOrigin,
-          score: null,
-          penaltyScore: null,
-          logoUrl: byeTeam.logoUrl
-        };
-      }
+      const seedLabel = awaySlotNum === 16 ? ' (Unggulan 2)' : awaySlotNum === 8 ? ' (Unggulan 4)' : '';
+      awaySlotData = getTeamForSlot(awaySlotNum, `[Menunggu Undian Slot ${awaySlotNum}${seedLabel}]`);
     }
-  }
 
-  // 4. Schedule Rest Engine: Enforces "Max 1 match/day per team" constraint
-  // Collect all matches in chronological order:
-  // Day 1: Playoff matches + Direct Bye matches (that don't depend on playoff winners)
-  // Day 2: R16 matches that depend on Playoff winners + remaining QF
-  // Day 3: Semifinals & Finals
+    r16Matches.push({
+      id: r16Id,
+      tournamentId,
+      matchNumber: matchCounter++,
+      stage: 'round_of_16',
+      homeTeam: homeSlotData,
+      awayTeam: awaySlotData,
+      winnerTeamId: null,
+      loserTeamId: null,
+      nextMatchId: parentQf.id,
+      isNextHome: i % 2 === 0,
+      nextLoserMatchId: null,
+      scheduledDate: '',
+      startTime: '',
+      endTime: '',
+      pitch: pitches[i % pitches.length] || 'Lapangan 1',
+      status: 'scheduled',
+      roundIndex: 1
+    });
+  }
+  roundMatchesByStage['round_of_16'] = r16Matches;
+
+  // 3. Schedule Rest Engine: Enforce "Max 1 match/day per team" constraint
   const allOrderedMatches: Match[] = [
     ...playoffMatches,
-    ...(roundMatchesByStage['round_of_16'] || []),
-    ...(roundMatchesByStage['quarter_final'] || []),
-    ...(roundMatchesByStage['semi_final'] || []),
+    ...roundMatchesByStage['round_of_16'],
+    ...roundMatchesByStage['quarter_final'],
+    ...roundMatchesByStage['semi_final'],
     ...(thirdPlaceMatch ? [thirdPlaceMatch] : []),
     ...roundMatchesByStage['final']
   ];
 
-  // Timetable generator with day allocation
   const slotMinutes = matchDurationMinutes + breakMinutes;
   let currentDayOffset = 0;
   let currentTime = dailyStartTime;
   let pitchIndex = 0;
 
-  // Identify matches that contain playoff winners (CANNOT play on Day 1)
   const playoffWinnerMatchIds = new Set(playoffMatches.map(p => p.nextMatchId).filter(Boolean));
 
   for (const match of allOrderedMatches) {
@@ -439,15 +472,13 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
     if (match.stage === 'playoff') {
       day = 0; // Strictly Day 1
     } else if (playoffWinnerMatchIds.has(match.id)) {
-      // Must not be Day 1 because playoff winners played on Day 1!
-      if (day === 0) day = 1;
+      if (day === 0) day = 1; // Playoff winners play on Day 2 or later
     } else if (match.stage === 'semi_final') {
       day = Math.max(day, 2);
     } else if (match.stage === 'third_place' || match.stage === 'final') {
       day = Math.max(day, 3);
     }
 
-    // Time calculations
     const matchStart = currentTime;
     const matchEnd = addMinutesToTime(currentTime, matchDurationMinutes);
     const assignedPitch = pitches[pitchIndex % pitches.length] || 'Lapangan 1';
@@ -457,12 +488,10 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
     match.endTime = matchEnd;
     match.pitch = assignedPitch;
 
-    // Advance pitch or time slot
     pitchIndex++;
     if (pitchIndex >= pitches.length) {
       pitchIndex = 0;
       currentTime = addMinutesToTime(currentTime, slotMinutes);
-      // If time exceeds 17:30 WIB (e.g. evening), advance to next day
       const [h] = currentTime.split(':').map(Number);
       if (h >= 18) {
         currentDayOffset++;
@@ -490,9 +519,9 @@ export function advanceKnockoutWinner(
   const cloned = matches.map(m => ({ ...m, homeTeam: { ...m.homeTeam }, awayTeam: { ...m.awayTeam } }));
   const target = cloned.find(m => m.id === matchId);
 
-  if (!target) throw new Error(`Match ${matchId} not found`);
+  if (!target) throw new Error(`Match ${matchId} tidak ditemukan`);
   if (!target.homeTeam.id || !target.awayTeam.id) {
-    throw new Error('Both teams must be present before advancing score');
+    throw new Error('Kedua tim harus terdaftar sebelum skor dapat diinputkan.');
   }
 
   target.homeTeam.score = scores.homeScore;
@@ -511,7 +540,6 @@ export function advanceKnockoutWinner(
     winnerId = target.awayTeam.id;
     loserId = target.homeTeam.id;
   } else {
-    // Penalty shootout tie-breaker
     const penHome = scores.homePenalty ?? 0;
     const penAway = scores.awayPenalty ?? 0;
     if (penHome > penAway) {
@@ -521,7 +549,7 @@ export function advanceKnockoutWinner(
       winnerId = target.awayTeam.id;
       loserId = target.homeTeam.id;
     } else {
-      throw new Error('Match tied in full time and penalty shootout. Must declare a winner.');
+      throw new Error('Skor seri di waktu normal dan adu penalti. Harus ada pemenang.');
     }
   }
 

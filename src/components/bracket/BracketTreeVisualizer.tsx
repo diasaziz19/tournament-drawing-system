@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Match, MatchStage } from '../../types/tournament';
-import { Trophy, Clock, Calendar, ChevronRight, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Trophy, Clock, Calendar, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Star } from 'lucide-react';
 import { MatchScoreModal } from './MatchScoreModal';
 
 interface BracketTreeVisualizerProps {
@@ -42,7 +42,6 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
       }
     });
 
-    // Sort matches in each stage by matchNumber
     Object.keys(map).forEach(stage => {
       map[stage].sort((a, b) => a.matchNumber - b.matchNumber);
     });
@@ -83,10 +82,10 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
           </div>
           <div>
             <h2 className="text-lg font-black text-slate-100">
-              Bagan Turnamen Resmi (Knockout Bracket)
+              Bagan Pertandingan Resmi (Knockout Tree)
             </h2>
             <p className="text-xs text-slate-400">
-              Sistem Gugur Tunggal dengan Integrasi Babak Playoff & Perebutan Juara 3
+              {hasPlayoffs ? `Format 19 Tim: 3 Laga Playoff + 13 Direct Byes (Termasuk 4 Tim Unggulan Terkunci)` : `Sistem Gugur Tunggal`}
             </p>
           </div>
         </div>
@@ -118,7 +117,7 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
         </div>
       </div>
 
-      {/* Champion Podium Banner (When Final match concludes) */}
+      {/* Champion Podium Banner */}
       {championName && (
         <div className="bg-gradient-to-r from-amber-500/20 via-amber-400/30 to-amber-500/20 border-b border-amber-400/40 p-4 text-center animate-pulse">
           <div className="inline-flex items-center space-x-2">
@@ -138,15 +137,15 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
         className="w-full overflow-x-auto overflow-y-hidden p-6 sm:p-10 transition-transform origin-top-left"
         style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }}
       >
-        <div className="inline-flex items-stretch space-x-8 sm:space-x-14 min-w-max pb-8">
-          {/* Column 1: Playoff / Preliminary Round (If present) */}
+        <div className="inline-flex items-stretch space-x-8 sm:space-x-12 min-w-max pb-8">
+          {/* Column 1: Playoff / Preliminary Round */}
           {hasPlayoffs && (
-            <div className="flex flex-col justify-around w-64 space-y-6">
+            <div className="flex flex-col justify-around w-72 space-y-6">
               <div className="text-center pb-2 border-b border-rose-500/40">
-                <span className="text-xs font-bold text-rose-400 tracking-wider uppercase">
-                  Playoff ({stagesMap.playoff.length} Laga)
+                <span className="text-xs font-black text-rose-400 tracking-wider uppercase">
+                  Babak Playoff ({stagesMap.playoff.length} Laga)
                 </span>
-                <p className="text-[10px] text-slate-400">Penyaringan 16 Besar</p>
+                <p className="text-[10px] text-slate-400">Penyaringan 16 Besar (Hari ke-1)</p>
               </div>
               <div className="flex flex-col justify-around flex-1 space-y-8">
                 {stagesMap.playoff.map(match => (
@@ -162,12 +161,12 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
 
           {/* Column 2: Round of 16 */}
           {hasR16 && (
-            <div className="flex flex-col justify-around w-64 space-y-6">
+            <div className="flex flex-col justify-around w-72 space-y-6">
               <div className="text-center pb-2 border-b border-indigo-500/40">
-                <span className="text-xs font-bold text-indigo-400 tracking-wider uppercase">
-                  Babak 16 Besar
+                <span className="text-xs font-black text-indigo-400 tracking-wider uppercase">
+                  Babak 16 Besar (8 Laga)
                 </span>
-                <p className="text-[10px] text-slate-400">8 Pertandingan</p>
+                <p className="text-[10px] text-slate-400">4 Unggulan + 9 Direct Bye + 3 Playoff</p>
               </div>
               <div className="flex flex-col justify-around flex-1 space-y-6">
                 {stagesMap.round_of_16.map(match => (
@@ -185,10 +184,10 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
           {hasQF && (
             <div className="flex flex-col justify-around w-64 space-y-6">
               <div className="text-center pb-2 border-b border-cyan-500/40">
-                <span className="text-xs font-bold text-cyan-400 tracking-wider uppercase">
-                  Perempat Final
+                <span className="text-xs font-black text-cyan-400 tracking-wider uppercase">
+                  Perempat Final (8 Besar)
                 </span>
-                <p className="text-[10px] text-slate-400">8 Besar</p>
+                <p className="text-[10px] text-slate-400">4 Pertandingan</p>
               </div>
               <div className="flex flex-col justify-around flex-1 space-y-12">
                 {stagesMap.quarter_final.map(match => (
@@ -206,10 +205,10 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
           {hasSF && (
             <div className="flex flex-col justify-around w-64 space-y-6">
               <div className="text-center pb-2 border-b border-purple-500/40">
-                <span className="text-xs font-bold text-purple-400 tracking-wider uppercase">
-                  Semifinal
+                <span className="text-xs font-black text-purple-400 tracking-wider uppercase">
+                  Semifinal (4 Besar)
                 </span>
-                <p className="text-[10px] text-slate-400">4 Besar</p>
+                <p className="text-[10px] text-slate-400">2 Pertandingan</p>
               </div>
               <div className="flex flex-col justify-around flex-1 space-y-24">
                 {stagesMap.semi_final.map(match => (
@@ -293,6 +292,9 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, isFinal = false, onClick }
   const hasHomeWon = isCompleted && match.winnerTeamId === match.homeTeam.id;
   const hasAwayWon = isCompleted && match.winnerTeamId === match.awayTeam.id;
 
+  const isHomePlaceholder = !match.homeTeam.id;
+  const isAwayPlaceholder = !match.awayTeam.id;
+
   return (
     <div
       onClick={onClick}
@@ -305,7 +307,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, isFinal = false, onClick }
       {/* Match Header Info */}
       <div className="flex items-center justify-between text-[11px] text-slate-400 border-b border-slate-800/80 pb-2 mb-2.5">
         <span className="font-bold text-slate-300">
-          M#{match.matchNumber}
+          M#{match.matchNumber} • {match.stage === 'playoff' ? 'Playoff' : match.stage === 'round_of_16' ? '16 Besar' : match.stage === 'quarter_final' ? '8 Besar' : match.stage === 'semi_final' ? 'Semifinal' : match.stage === 'third_place' ? 'Juara 3' : 'Final'}
         </span>
         <div className="flex items-center space-x-2 text-[10px]">
           <span className="flex items-center space-x-1">
@@ -320,13 +322,20 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, isFinal = false, onClick }
 
       {/* Home Team Row */}
       <div className={`flex items-center justify-between py-1.5 px-2 rounded-lg transition-colors ${
-        hasHomeWon ? 'bg-emerald-500/20 text-emerald-300 font-bold' : 'text-slate-300'
+        hasHomeWon ? 'bg-emerald-500/20 text-emerald-300 font-bold' : isHomePlaceholder ? 'border border-dashed border-slate-800 bg-slate-950/50 text-slate-500' : 'text-slate-300'
       }`}>
         <div className="flex items-center space-x-2 overflow-hidden mr-2">
-          <span className="w-2 h-2 rounded-full flex-shrink-0 bg-slate-600" />
-          <span className="text-xs truncate font-medium" title={match.homeTeam.name}>
-            {match.homeTeam.name}
-          </span>
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isHomePlaceholder ? 'bg-slate-700' : 'bg-emerald-400'}`} />
+          <div className="truncate">
+            <div className={`text-xs truncate ${isHomePlaceholder ? 'italic text-slate-500 text-[11px]' : 'font-bold text-white'}`} title={match.homeTeam.name}>
+              {match.homeTeam.name}
+            </div>
+            {match.homeTeam.departmentOrigin && (
+              <div className="text-[10px] text-slate-400 truncate">
+                {match.homeTeam.departmentOrigin}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center space-x-1">
           {match.homeTeam.penaltyScore !== null && (
@@ -341,14 +350,21 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, isFinal = false, onClick }
       </div>
 
       {/* Away Team Row */}
-      <div className={`flex items-center justify-between py-1.5 px-2 rounded-lg mt-1 transition-colors ${
-        hasAwayWon ? 'bg-emerald-500/20 text-emerald-300 font-bold' : 'text-slate-300'
+      <div className={`flex items-center justify-between py-1.5 px-2 rounded-lg mt-1.5 transition-colors ${
+        hasAwayWon ? 'bg-emerald-500/20 text-emerald-300 font-bold' : isAwayPlaceholder ? 'border border-dashed border-slate-800 bg-slate-950/50 text-slate-500' : 'text-slate-300'
       }`}>
         <div className="flex items-center space-x-2 overflow-hidden mr-2">
-          <span className="w-2 h-2 rounded-full flex-shrink-0 bg-slate-600" />
-          <span className="text-xs truncate font-medium" title={match.awayTeam.name}>
-            {match.awayTeam.name}
-          </span>
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isAwayPlaceholder ? 'bg-slate-700' : 'bg-indigo-400'}`} />
+          <div className="truncate">
+            <div className={`text-xs truncate ${isAwayPlaceholder ? 'italic text-slate-500 text-[11px]' : 'font-bold text-white'}`} title={match.awayTeam.name}>
+              {match.awayTeam.name}
+            </div>
+            {match.awayTeam.departmentOrigin && (
+              <div className="text-[10px] text-slate-400 truncate">
+                {match.awayTeam.departmentOrigin}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex items-center space-x-1">
           {match.awayTeam.penaltyScore !== null && (
@@ -366,7 +382,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, isFinal = false, onClick }
       <div className="mt-2 pt-1.5 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-500 group-hover:text-slate-400">
         <span>{isCompleted ? 'Selesai' : match.status === 'live' ? '🟢 Live' : 'Terjadwal'}</span>
         <span className="flex items-center text-indigo-400 group-hover:translate-x-0.5 transition-transform">
-          <span>Detail</span>
+          <span>Detail / Skor</span>
           <ChevronRight className="w-3 h-3 ml-0.5" />
         </span>
       </div>
