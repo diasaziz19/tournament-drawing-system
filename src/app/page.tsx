@@ -249,6 +249,58 @@ export default function TournamentDashboard() {
     }
   };
 
+  // Dedicated Reset Draw Handler - Clears random drawn slots while preserving seeded teams
+  const handleResetDrawSession = async () => {
+    // Preserve seedNumber 1..4, clear all other drawnSlot
+    const resetTeams = teams.map(t => {
+      const isSeeded = t.seedNumber && [1, 2, 3, 4].includes(t.seedNumber);
+      return isSeeded ? t : { ...t, drawnSlot: null };
+    });
+    setTeams(resetTeams);
+
+    if (tournament.format === 'knockout') {
+      const regeneratedMatches = generateKnockoutBracket({
+        tournamentId: tournament.id,
+        teams: resetTeams,
+        startDate: tournament.startDate,
+        dailyStartTime: tournament.dailyStartTime,
+        matchDurationMinutes: tournament.matchDurationMinutes,
+        breakMinutes: tournament.breakMinutes,
+        pitches: tournament.pitches,
+        hasThirdPlacePlayoff: tournament.hasThirdPlacePlayoff,
+        maxMatchesPerDayPerTeam: tournament.maxMatchesPerDayPerTeam
+      });
+      setMatches(regeneratedMatches);
+
+      try {
+        await tournamentService.batchSaveTeams(tournament.id, resetTeams);
+        await tournamentService.batchSaveMatches(tournament.id, regeneratedMatches);
+        await tournamentService.updateDrawingSession(tournament.id, {
+          status: 'idle',
+          currentTeam: null,
+          currentSlot: null,
+          isRevealed: false,
+          revealedTeamIds: resetTeams.filter(t => t.drawnSlot !== null).map(t => t.id),
+          message: 'Hasil Undian Berhasil Direset'
+        });
+      } catch (err) {
+        console.error('Failed to reset draw in Firestore:', err);
+      }
+    } else {
+      try {
+        await tournamentService.batchSaveTeams(tournament.id, resetTeams);
+        await tournamentService.updateDrawingSession(tournament.id, {
+          status: 'idle',
+          currentTeam: null,
+          currentSlot: null,
+          isRevealed: false,
+          revealedTeamIds: [],
+          message: 'Hasil Undian Berhasil Direset'
+        });
+      } catch (err) {}
+    }
+  };
+
   // Score save handler with auto-advancement
   const handleSaveScore = async (
     matchId: string,
@@ -561,6 +613,7 @@ export default function TournamentDashboard() {
             session={drawingSession}
             isAdmin={isSuperAdmin}
             onSlotAssigned={handleSlotAssigned}
+            onResetDraw={handleResetDrawSession}
           />
         )}
 

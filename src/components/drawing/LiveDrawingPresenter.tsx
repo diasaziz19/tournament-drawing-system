@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Trophy, 
@@ -15,7 +15,8 @@ import {
   VolumeX,
   Layers,
   ArrowRight,
-  Pin
+  Pin,
+  ListOrdered
 } from 'lucide-react';
 import { Team, DrawingSession } from '../../types/tournament';
 import { tournamentService } from '../../lib/firestore-converters';
@@ -28,6 +29,7 @@ interface LiveDrawingPresenterProps {
   session: DrawingSession | null;
   isAdmin?: boolean;
   onSlotAssigned?: (teamId: string, slotNumber: number) => void;
+  onResetDraw?: () => Promise<void>;
 }
 
 // Web Audio API sound generator for browser-native sound effects
@@ -86,25 +88,40 @@ export const LiveDrawingPresenter: React.FC<LiveDrawingPresenterProps> = ({
   teams,
   session,
   isAdmin = false,
-  onSlotAssigned
+  onSlotAssigned,
+  onResetDraw
 }) => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [localPotFilter, setLocalPotFilter] = useState<number | 'all'>('all');
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+  const [selectedSlotId, setSelectedSlotId] = useState<number | null>(null);
+  const [resetting, setResetting] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Available slots for the tournament (e.g. 19 teams)
-  const allBracketSlots = getAvailableBracketSlots(teams.length);
-  const assignedSlots = new Set(teams.map(t => t.drawnSlot).filter((s): s is number => s !== null));
+  const allBracketSlots = useMemo(() => getAvailableBracketSlots(teams.length), [teams.length]);
+  const assignedSlots = useMemo(() => new Set(teams.map(t => t.drawnSlot).filter((s): s is number => s !== null)), [teams]);
 
   // Vacant slots to be drawn
-  const vacantSlots = allBracketSlots.filter(s => !assignedSlots.has(s.slotId));
+  const vacantSlots = useMemo(() => allBracketSlots.filter(s => !assignedSlots.has(s.slotId)), [allBracketSlots, assignedSlots]);
 
   // Teams that have not been drawn or seeded yet
-  const undrawnTeams = teams.filter(t => t.drawnSlot === null);
+  const undrawnTeams = useMemo(() => teams.filter(t => t.drawnSlot === null), [teams]);
   // Teams that are already plotted (seeded or drawn)
-  const drawnTeams = teams.filter(t => t.drawnSlot !== null).sort((a, b) => (a.drawnSlot || 0) - (b.drawnSlot || 0));
+  const drawnTeams = useMemo(() => teams.filter(t => t.drawnSlot !== null).sort((a, b) => (a.drawnSlot || 0) - (b.drawnSlot || 0)), [teams]);
+
+  // Determine current target slot: user selected or first available
+  const targetSlotObj = useMemo(() => {
+    if (vacantSlots.length === 0) return null;
+    if (selectedSlotId !== null) {
+      const found = vacantSlots.find(s => s.slotId === selectedSlotId);
+      if (found) return found;
+    }
+    return vacantSlots[0] || null;
+  }, [vacantSlots, selectedSlotId]);
+
+  const currentSlotLabel = targetSlotObj ? targetSlotObj.label : `Slot #${session?.currentSlot || ''}`;
 
   // Toggle fullscreen
   const toggleFullscreen = () => {
@@ -127,10 +144,6 @@ export const LiveDrawingPresenter: React.FC<LiveDrawingPresenterProps> = ({
       playSoundEffect('fanfare');
     }
   }, [session?.isRevealed, session?.status, soundEnabled]);
-
-  // Next slot target label
-  const targetSlotObj = vacantSlots[0] || null;
-  const currentSlotLabel = targetSlotObj ? targetSlotObj.label : `Slot #${session?.currentSlot || ''}`;
 
   // Admin Controller Handlers
   const handleStartDraw = async () => {
@@ -197,30 +210,27 @@ export const LiveDrawingPresenter: React.FC<LiveDrawingPresenterProps> = ({
     });
 
     setConflictWarning(null);
+    setSelectedSlotId(null); // Reset selection to next available slot
   };
 
   const handleResetDraw = async () => {
-    if (!isAdmin || !window.confirm('Reset hasil undian slot (selain tim unggulan terplot)?')) return;
-    // Clear drawn slots for non-seeded teams
-    const resetTeams = teams.map(t => {
-      if (t.seedNumber && [1, 2, 3, 4].includes(t.seedNumber)) return t; // Keep seeds
-      return { ...t, drawnSlot: null };
-    });
+    if (!isAdmin) return;
+    const confirmReset = window.confirm(
+      'Yakin ingin mereset seluruh hasil undian slot acak?\n\n(Catatan: 4 Tim Unggulan yang diplot manual akan tetap dipertahankan di bagan).'
+    );
+    if (!confirmReset) return;
 
-    if (onSlotAssigned) {
-      resetTeams.forEach(t => {
-        if (t.drawnSlot === null) onSlotAssigned(t.id, null as any);
-      });
+    try {
+      setResetting(true);
+      if (onResetDraw) {
+        await onResetDraw();
+      }
+    } catch (err) {
+      console.error('Failed to reset draw:', err);
+      alert('Gagal mereset undian ke Firestore.');
+    } finally {
+      setResetting(false);
     }
-
-    await tournamentService.updateDrawingSession(tournamentId, {
-      status: 'idle',
-      currentTeam: null,
-      currentSlot: null,
-      isRevealed: false,
-      revealedTeamIds: resetTeams.filter(t => t.drawnSlot !== null).map(t => t.id),
-      message: 'Sesi Undian Di-reset'
-    });
   };
 
   const isDrawing = session?.status === 'drawing';
@@ -301,7 +311,7 @@ export const LiveDrawingPresenter: React.FC<LiveDrawingPresenterProps> = ({
                 </div>
 
                 <div className="mb-2 px-3.5 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 text-xs font-black uppercase tracking-wider">
-                  Target: {currentSlotLabel}
+                  Target Undian: {currentSlotLabel}
                 </div>
 
                 <h3 className="text-2xl font-bold text-slate-100 mb-2">
@@ -309,7 +319,7 @@ export const LiveDrawingPresenter: React.FC<LiveDrawingPresenterProps> = ({
                 </h3>
                 <p className="text-slate-400 text-xs sm:text-sm max-w-md">
                   {isAdmin 
-                    ? `Klik tombol "Ambil Undian Berikutnya" untuk mengacak tim yang mengisi ${currentSlotLabel}. Begitu dikonfirmasi, tim otomatis muncul di Bagan.` 
+                    ? `Pilih slot yang ingin diundi pada bar kontrol di bawah, lalu klik "Undi Slot". Begitu dikonfirmasi, tim langsung muncul di Bagan.` 
                     : `Menunggu Panitia mengundi tim yang akan menempati ${currentSlotLabel}...`}
                 </p>
 
@@ -438,10 +448,11 @@ export const LiveDrawingPresenter: React.FC<LiveDrawingPresenterProps> = ({
                 {isAdmin && (
                   <button
                     onClick={handleResetDraw}
+                    disabled={resetting}
                     className="mt-6 inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-slate-700 transition-colors"
                   >
-                    <RotateCcw className="w-4 h-4" />
-                    <span>Reset Hasil Undian Slot</span>
+                    <RotateCcw className={`w-4 h-4 ${resetting ? 'animate-spin' : ''}`} />
+                    <span>{resetting ? 'Mereset Data...' : 'Reset Hasil Undian Slot'}</span>
                   </button>
                 )}
               </motion.div>
@@ -452,44 +463,70 @@ export const LiveDrawingPresenter: React.FC<LiveDrawingPresenterProps> = ({
 
       {/* Admin Control Dock */}
       {isAdmin && session?.status !== 'completed' && (
-        <div className="relative z-10 bg-slate-900/90 backdrop-blur-md rounded-xl p-4 border border-slate-800 flex flex-wrap items-center justify-between gap-4 mt-auto">
-          <div className="flex items-center space-x-3">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-              Filter Pot:
-            </span>
-            {(['all', 1, 2, 3] as const).map(p => (
-              <button
-                key={p}
-                onClick={() => setLocalPotFilter(p)}
-                disabled={isDrawing}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors ${
-                  localPotFilter === p
-                    ? 'bg-amber-500 text-slate-950 shadow-md'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
-                }`}
-              >
-                {p === 'all' ? 'Semua Pot' : `Pot ${p}`}
-              </button>
-            ))}
+        <div className="relative z-10 bg-slate-900/95 backdrop-blur-md rounded-xl p-4 border border-slate-800 flex flex-wrap items-center justify-between gap-4 mt-auto">
+          {/* Slot Selector & Pot Filter */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Slot Choice Dropdown */}
+            {vacantSlots.length > 0 && (
+              <div className="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                <ListOrdered className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold text-slate-300 whitespace-nowrap">Slot Tujuan:</span>
+                <select
+                  value={targetSlotObj?.slotId || ''}
+                  onChange={e => setSelectedSlotId(Number(e.target.value))}
+                  disabled={isDrawing}
+                  className="bg-transparent border-none text-amber-400 font-bold text-xs outline-none cursor-pointer max-w-[220px] truncate"
+                >
+                  {vacantSlots.map(s => (
+                    <option key={s.slotId} value={s.slotId} className="bg-slate-900 text-white font-semibold">
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Pot Filter */}
+            <div className="flex items-center space-x-1.5">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">
+                Pot:
+              </span>
+              {(['all', 1, 2, 3] as const).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setLocalPotFilter(p)}
+                  disabled={isDrawing}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-colors ${
+                    localPotFilter === p
+                      ? 'bg-amber-500 text-slate-950 shadow-md'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
+                  }`}
+                >
+                  {p === 'all' ? 'Semua' : `P${p}`}
+                </button>
+              ))}
+            </div>
           </div>
 
+          {/* Action Buttons */}
           <div className="flex items-center space-x-3">
             <button
               onClick={handleResetDraw}
-              disabled={isDrawing}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-semibold transition-colors flex items-center space-x-1.5"
+              disabled={isDrawing || resetting}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 text-xs font-semibold transition-colors flex items-center space-x-1.5 border border-slate-700 disabled:opacity-50"
+              title="Reset seluruh hasil undian slot acak (Tim unggulan tetap aman)"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Reset Undian</span>
+              <RotateCcw className={`w-3.5 h-3.5 ${resetting ? 'animate-spin' : ''}`} />
+              <span>{resetting ? 'Mereset...' : 'Reset Undian'}</span>
             </button>
 
             <button
               onClick={handleStartDraw}
               disabled={isDrawing || isRevealed || undrawnTeams.length === 0 || !targetSlotObj}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-amber-500/20 flex items-center space-x-2 transition-all"
+              className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 font-black text-xs sm:text-sm shadow-lg shadow-amber-500/20 flex items-center space-x-2 transition-all"
             >
               <Play className="w-4 h-4 fill-slate-950" />
-              <span>Undi {targetSlotObj ? targetSlotObj.label : 'Slot Berikutnya'}</span>
+              <span>Undi {targetSlotObj ? targetSlotObj.label.replace(' (16 Besar)', '').replace(' - Tim', '') : 'Slot'}</span>
             </button>
           </div>
         </div>

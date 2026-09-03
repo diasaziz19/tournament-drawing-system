@@ -34,7 +34,8 @@ import {
   Shield,
   Shuffle,
   Star,
-  Pin
+  Pin,
+  Dices
 } from 'lucide-react';
 
 interface SuperAdminConfigPanelProps {
@@ -98,19 +99,38 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
   const [seed2TeamId, setSeed2TeamId] = useState<string>('');
   const [seed3TeamId, setSeed3TeamId] = useState<string>('');
   const [seed4TeamId, setSeed4TeamId] = useState<string>('');
+
+  // Assigned slots for the 4 seeds (defaults: 1=Slot 1, 2=Slot 16, 3=Slot 9, 4=Slot 8)
+  const [seed1Slot, setSeed1Slot] = useState<number>(1);
+  const [seed2Slot, setSeed2Slot] = useState<number>(16);
+  const [seed3Slot, setSeed3Slot] = useState<number>(9);
+  const [seed4Slot, setSeed4Slot] = useState<number>(8);
+
   const [seedSuccess, setSeedSuccess] = useState<string | null>(null);
 
   // Initialize seeded team selections if any exist
   useEffect(() => {
-    const s1 = roster.find(t => t.drawnSlot === 1 || t.seedNumber === 1);
-    const s2 = roster.find(t => t.drawnSlot === 16 || t.seedNumber === 2);
-    const s3 = roster.find(t => t.drawnSlot === 9 || t.seedNumber === 3);
-    const s4 = roster.find(t => t.drawnSlot === 8 || t.seedNumber === 4);
+    const s1 = roster.find(t => t.drawnSlot === 1 || t.drawnSlot === 16 && t.seedNumber === 1 || t.seedNumber === 1);
+    const s2 = roster.find(t => t.drawnSlot === 16 || t.drawnSlot === 1 && t.seedNumber === 2 || t.seedNumber === 2);
+    const s3 = roster.find(t => t.drawnSlot === 9 || t.drawnSlot === 8 && t.seedNumber === 3 || t.seedNumber === 3);
+    const s4 = roster.find(t => t.drawnSlot === 8 || t.drawnSlot === 9 && t.seedNumber === 4 || t.seedNumber === 4);
 
-    if (s1) setSeed1TeamId(s1.id);
-    if (s2) setSeed2TeamId(s2.id);
-    if (s3) setSeed3TeamId(s3.id);
-    if (s4) setSeed4TeamId(s4.id);
+    if (s1) {
+      setSeed1TeamId(s1.id);
+      if (s1.drawnSlot) setSeed1Slot(s1.drawnSlot);
+    }
+    if (s2) {
+      setSeed2TeamId(s2.id);
+      if (s2.drawnSlot) setSeed2Slot(s2.drawnSlot);
+    }
+    if (s3) {
+      setSeed3TeamId(s3.id);
+      if (s3.drawnSlot) setSeed3Slot(s3.drawnSlot);
+    }
+    if (s4) {
+      setSeed4TeamId(s4.id);
+      if (s4.drawnSlot) setSeed4Slot(s4.drawnSlot);
+    }
   }, [roster]);
 
   // Generate blank template teams based on target count
@@ -147,6 +167,10 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     setSeed2TeamId('team-ums-2');
     setSeed3TeamId('team-ums-3');
     setSeed4TeamId('team-ums-4');
+    setSeed1Slot(1);
+    setSeed2Slot(16);
+    setSeed3Slot(9);
+    setSeed4Slot(8);
   };
 
   // Add individual team row
@@ -187,39 +211,8 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     }));
   };
 
-  // Manual Plotting of 4 Seeded Teams to Fixed Strategic Slots
-  const handlePlotSeededTeams = async () => {
-    if (!seed1TeamId || !seed2TeamId || !seed3TeamId || !seed4TeamId) {
-      setStatusMessage({ type: 'error', text: 'Harap pilih 4 tim unggulan lengkap (Unggulan 1, 2, 3, dan 4).' });
-      return;
-    }
-
-    const selectedIds = [seed1TeamId, seed2TeamId, seed3TeamId, seed4TeamId];
-    const uniqueIds = new Set(selectedIds);
-    if (uniqueIds.size < 4) {
-      setStatusMessage({ type: 'error', text: 'Setiap posisi unggulan harus diisi oleh tim yang berbeda.' });
-      return;
-    }
-
-    // Update roster: assign fixed slot 1, 16, 9, 8 to the 4 seeded teams
-    const updatedRoster = roster.map(t => {
-      if (t.id === seed1TeamId) {
-        return { ...t, potTier: 1 as const, seedNumber: 1, drawnSlot: 1 };
-      } else if (t.id === seed2TeamId) {
-        return { ...t, potTier: 1 as const, seedNumber: 2, drawnSlot: 16 };
-      } else if (t.id === seed3TeamId) {
-        return { ...t, potTier: 1 as const, seedNumber: 3, drawnSlot: 9 };
-      } else if (t.id === seed4TeamId) {
-        return { ...t, potTier: 1 as const, seedNumber: 4, drawnSlot: 8 };
-      } else {
-        // Clear drawnSlot if this team was previously seeded elsewhere
-        return { ...t, drawnSlot: null };
-      }
-    });
-
-    setRoster(updatedRoster);
-
-    // Regenerate knockout bracket with plotted seeds
+  // Helper: Persist plotted seeds to Firestore & local state
+  const savePlottedSeeds = async (updatedRoster: Team[], successMsg: string) => {
     const pitches = pitchesText.split(',').map(p => p.trim()).filter(Boolean);
     const newMatches = generateKnockoutBracket({
       tournamentId: tournament.id,
@@ -238,13 +231,147 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
       await tournamentService.batchSaveTeams(tournament.id, updatedRoster);
       await tournamentService.batchSaveMatches(tournament.id, newMatches);
       onConfigSaved(tournament, updatedRoster);
-      setSeedSuccess('4 Tim Unggulan berhasil diplot ke Bagan! Nama mereka langsung aktif di Bagan Pertandingan.');
-      setTimeout(() => setSeedSuccess(null), 5000);
+      setSeedSuccess(successMsg);
+      setTimeout(() => setSeedSuccess(null), 6000);
     } catch (err: any) {
       setStatusMessage({ type: 'error', text: err.message || 'Gagal menyimpan ke Firestore' });
     } finally {
       setSaving(false);
     }
+  };
+
+  // Manual Plotting of 4 Seeded Teams to Assigned Slots
+  const handlePlotSeededTeams = async () => {
+    if (!seed1TeamId || !seed2TeamId || !seed3TeamId || !seed4TeamId) {
+      setStatusMessage({ type: 'error', text: 'Harap pilih 4 tim unggulan lengkap (Unggulan 1, 2, 3, dan 4).' });
+      return;
+    }
+
+    const selectedIds = [seed1TeamId, seed2TeamId, seed3TeamId, seed4TeamId];
+    const uniqueIds = new Set(selectedIds);
+    if (uniqueIds.size < 4) {
+      setStatusMessage({ type: 'error', text: 'Setiap posisi unggulan harus diisi oleh tim yang berbeda.' });
+      return;
+    }
+
+    const updatedRoster = roster.map(t => {
+      if (t.id === seed1TeamId) {
+        return { ...t, potTier: 1 as const, seedNumber: 1, drawnSlot: seed1Slot };
+      } else if (t.id === seed2TeamId) {
+        return { ...t, potTier: 1 as const, seedNumber: 2, drawnSlot: seed2Slot };
+      } else if (t.id === seed3TeamId) {
+        return { ...t, potTier: 1 as const, seedNumber: 3, drawnSlot: seed3Slot };
+      } else if (t.id === seed4TeamId) {
+        return { ...t, potTier: 1 as const, seedNumber: 4, drawnSlot: seed4Slot };
+      } else {
+        return { ...t, drawnSlot: null };
+      }
+    });
+
+    setRoster(updatedRoster);
+    await savePlottedSeeds(updatedRoster, '📌 4 Tim Unggulan berhasil diplot ke Bagan! Nama mereka langsung muncul di Bagan Pertandingan.');
+  };
+
+  // Randomize Pool for Juara 1 & 2 (Pool Atas vs Pool Bawah)
+  const handleRandomizeTop2Pool = async () => {
+    if (!seed1TeamId || !seed2TeamId) {
+      setStatusMessage({ type: 'error', text: 'Harap pilih Tim Juara 1 dan Juara 2 terlebih dahulu.' });
+      return;
+    }
+    const t1 = roster.find(t => t.id === seed1TeamId);
+    const t2 = roster.find(t => t.id === seed2TeamId);
+    if (!t1 || !t2) return;
+
+    // 50:50 Coin Toss: Slot 1 (Pool Atas) vs Slot 16 (Pool Bawah)
+    const isT1Top = Math.random() < 0.5;
+    const slotT1 = isT1Top ? 1 : 16;
+    const slotT2 = isT1Top ? 16 : 1;
+
+    setSeed1Slot(slotT1);
+    setSeed2Slot(slotT2);
+
+    const updatedRoster = roster.map(t => {
+      if (t.id === t1.id) return { ...t, potTier: 1 as const, seedNumber: 1, drawnSlot: slotT1 };
+      if (t.id === t2.id) return { ...t, potTier: 1 as const, seedNumber: 2, drawnSlot: slotT2 };
+      return t;
+    });
+    setRoster(updatedRoster);
+
+    const outcomeMsg = isT1Top
+      ? `🎲 Hasil Acak Pool: Juara 1 (${t1.name}) $\\rightarrow$ Pool Atas (Slot #1) & Juara 2 (${t2.name}) $\\rightarrow$ Pool Bawah (Slot #16)`
+      : `🎲 Hasil Acak Pool: Juara 2 (${t2.name}) $\\rightarrow$ Pool Atas (Slot #1) & Juara 1 (${t1.name}) $\\rightarrow$ Pool Bawah (Slot #16)`;
+
+    await savePlottedSeeds(updatedRoster, outcomeMsg);
+  };
+
+  // Randomize Pool for Juara 3 & 4 (Pool Atas vs Pool Bawah)
+  const handleRandomize3rd4thPool = async () => {
+    if (!seed3TeamId || !seed4TeamId) {
+      setStatusMessage({ type: 'error', text: 'Harap pilih Tim Juara 3 dan Juara 4 terlebih dahulu.' });
+      return;
+    }
+    const t3 = roster.find(t => t.id === seed3TeamId);
+    const t4 = roster.find(t => t.id === seed4TeamId);
+    if (!t3 || !t4) return;
+
+    // 50:50 Coin Toss: Slot 8 (Pool Atas) vs Slot 9 (Pool Bawah)
+    const isT3Top = Math.random() < 0.5;
+    const slotT3 = isT3Top ? 8 : 9;
+    const slotT4 = isT3Top ? 9 : 8;
+
+    setSeed3Slot(slotT3);
+    setSeed4Slot(slotT4);
+
+    const updatedRoster = roster.map(t => {
+      if (t.id === t3.id) return { ...t, potTier: 1 as const, seedNumber: 3, drawnSlot: slotT3 };
+      if (t.id === t4.id) return { ...t, potTier: 1 as const, seedNumber: 4, drawnSlot: slotT4 };
+      return t;
+    });
+    setRoster(updatedRoster);
+
+    const outcomeMsg = isT3Top
+      ? `🎲 Hasil Acak Pool: Juara 3 (${t3.name}) $\\rightarrow$ Pool Atas (Slot #8) & Juara 4 (${t4.name}) $\\rightarrow$ Pool Bawah (Slot #9)`
+      : `🎲 Hasil Acak Pool: Juara 4 (${t4.name}) $\\rightarrow$ Pool Atas (Slot #8) & Juara 3 (${t3.name}) $\\rightarrow$ Pool Bawah (Slot #9)`;
+
+    await savePlottedSeeds(updatedRoster, outcomeMsg);
+  };
+
+  // Randomize all 4 seeds simultaneously
+  const handleRandomizeAll4Seeds = async () => {
+    if (!seed1TeamId || !seed2TeamId || !seed3TeamId || !seed4TeamId) {
+      setStatusMessage({ type: 'error', text: 'Harap pilih ke-4 tim unggulan terlebih dahulu.' });
+      return;
+    }
+    const t1 = roster.find(t => t.id === seed1TeamId);
+    const t2 = roster.find(t => t.id === seed2TeamId);
+    const t3 = roster.find(t => t.id === seed3TeamId);
+    const t4 = roster.find(t => t.id === seed4TeamId);
+    if (!t1 || !t2 || !t3 || !t4) return;
+
+    const isT1Top = Math.random() < 0.5;
+    const slotT1 = isT1Top ? 1 : 16;
+    const slotT2 = isT1Top ? 16 : 1;
+
+    const isT3Top = Math.random() < 0.5;
+    const slotT3 = isT3Top ? 8 : 9;
+    const slotT4 = isT3Top ? 9 : 8;
+
+    setSeed1Slot(slotT1);
+    setSeed2Slot(slotT2);
+    setSeed3Slot(slotT3);
+    setSeed4Slot(slotT4);
+
+    const updatedRoster = roster.map(t => {
+      if (t.id === t1.id) return { ...t, potTier: 1 as const, seedNumber: 1, drawnSlot: slotT1 };
+      if (t.id === t2.id) return { ...t, potTier: 1 as const, seedNumber: 2, drawnSlot: slotT2 };
+      if (t.id === t3.id) return { ...t, potTier: 1 as const, seedNumber: 3, drawnSlot: slotT3 };
+      if (t.id === t4.id) return { ...t, potTier: 1 as const, seedNumber: 4, drawnSlot: slotT4 };
+      return { ...t, drawnSlot: null };
+    });
+    setRoster(updatedRoster);
+
+    const outcomeMsg = `🎉 Hasil Acak 4 Besar Selesai!\n[Pool Atas: ${isT1Top ? t1.name : t2.name} (Slot 1) & ${isT3Top ? t3.name : t4.name} (Slot 8)]\n[Pool Bawah: ${isT1Top ? t2.name : t1.name} (Slot 16) & ${isT3Top ? t4.name : t3.name} (Slot 9)]`;
+    await savePlottedSeeds(updatedRoster, outcomeMsg);
   };
 
   // Save and build full tournament architecture in Firestore
@@ -276,7 +403,6 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
         updatedAt: Date.now()
       };
 
-      // Keep seeded slots if already assigned, otherwise null
       const cleanTeams: Team[] = roster.map((t) => ({
         ...t,
         tournamentId: tournament.id,
@@ -284,7 +410,6 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
         groupPosition: null
       }));
 
-      // Generate Matches & Groups according to format
       let generatedMatches: any[] = [];
       let generatedGroups: any[] = [];
 
@@ -342,13 +467,11 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
         }
       }
 
-      // Persist everything to Cloud Firestore
       await tournamentService.saveTournament(updatedTournament);
       await tournamentService.batchSaveTeams(tournament.id, cleanTeams);
       await tournamentService.batchSaveMatches(tournament.id, generatedMatches);
       await tournamentService.batchSaveGroups(tournament.id, generatedGroups);
 
-      // Reset Drawing Session
       await tournamentService.updateDrawingSession(tournament.id, {
         status: 'idle',
         currentTeam: null,
@@ -416,7 +539,6 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
           1. Pilih Tipe & Format Kompetisi
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Format 1: Knockout */}
           <div
             onClick={() => setFormat('knockout')}
             className={`p-5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
@@ -444,7 +566,6 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
             </div>
           </div>
 
-          {/* Format 2: Setengah Kompetisi */}
           <div
             onClick={() => setFormat('group_single')}
             className={`p-5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
@@ -472,7 +593,6 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
             </div>
           </div>
 
-          {/* Format 3: Kompetisi Penuh */}
           <div
             onClick={() => setFormat('group_double')}
             className={`p-5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
@@ -500,7 +620,6 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
             </div>
           </div>
 
-          {/* Format 4: Multi-stage */}
           <div
             onClick={() => setFormat('group_knockout')}
             className={`p-5 rounded-2xl border cursor-pointer transition-all flex flex-col justify-between ${
@@ -554,7 +673,6 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
           </div>
         </div>
 
-        {/* Quick Presets */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-slate-400 mr-2">Pilih Jumlah Tim:</span>
           {PRESET_COUNTS.map(count => (
@@ -574,120 +692,169 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
         </div>
       </div>
 
-      {/* 3. EXCLUSIVE: Plotting Manual 4 Tim Unggulan (Seeded Teams) */}
+      {/* 3. EXCLUSIVE: Plotting & Pengacakan Pool 4 Tim Unggulan */}
       {format === 'knockout' && (
         <div className="p-6 rounded-2xl bg-gradient-to-br from-indigo-950/60 to-slate-950 border-2 border-amber-500/50 space-y-5 shadow-xl">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center space-x-2.5">
               <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400">
                 <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
               </div>
               <div>
                 <h4 className="text-base font-black text-white flex items-center space-x-2">
-                  <span>Plotting Manual 4 Tim Unggulan (Seeded Teams)</span>
+                  <span>Plotting & Pengacakan Pool 4 Tim Unggulan</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-bold">
                     Prestasi Tahun Lalu
                   </span>
                 </h4>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  Pilih 4 tim unggulan untuk dikunci langsung ke slot bagan 16 Besar (Mendapat Direct Bye). Sisa 15 tim lainnya akan diundi secara acak pada menu Live Drawing.
+                  Tentukan 4 tim terbaik tahun lalu. Anda bisa mengacak penempatan Pool Atas vs Pool Bawah secara adil, atau menguncinya langsung ke bagan.
                 </p>
               </div>
             </div>
+
+            {/* All-in-one randomizer */}
+            <button
+              type="button"
+              onClick={handleRandomizeAll4Seeds}
+              disabled={saving}
+              className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs flex items-center space-x-1.5 shadow-lg shadow-purple-500/20 transition-all disabled:opacity-50"
+            >
+              <Dices className="w-4 h-4" />
+              <span>🎲 Acak Seluruh Pool 4 Besar Sekaligus</span>
+            </button>
           </div>
 
           {seedSuccess && (
-            <div className="p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-xs flex items-center space-x-2 animate-in fade-in">
+            <div className="p-3.5 rounded-xl bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-xs flex items-center space-x-2 animate-in fade-in whitespace-pre-line">
               <Check className="w-4 h-4 flex-shrink-0" />
               <span>{seedSuccess}</span>
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Unggulan 1 */}
-            <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/40 space-y-2">
-              <div className="flex items-center justify-between text-xs font-black text-amber-400">
-                <span>Unggulan 1 (Juara)</span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-amber-300">Slot #1 (Match 1 Atas)</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Box 1: Pasangan Juara 1 & 2 */}
+            <div className="p-4 rounded-xl bg-slate-900/90 border border-amber-500/30 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
+                  Pasangan Juara 1 & Runner-Up
+                </span>
+                <button
+                  type="button"
+                  onClick={handleRandomizeTop2Pool}
+                  disabled={saving}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-[11px] flex items-center space-x-1 transition-colors"
+                  title="Acak apakah Juara 1 di Pool Atas atau Pool Bawah"
+                >
+                  <Shuffle className="w-3.5 h-3.5" />
+                  <span>🎲 Acak Pool 1 & 2</span>
+                </button>
               </div>
-              <select
-                value={seed1TeamId}
-                onChange={e => setSeed1TeamId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
-              >
-                <option value="">-- Pilih Tim Unggulan 1 --</option>
-                {roster.map(t => (
-                  <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                    {t.name} ({t.departmentOrigin})
-                  </option>
-                ))}
-              </select>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
+                    <span>Juara 1 Tahun Lalu</span>
+                    <span className="text-amber-400 text-[10px]">{seed1Slot === 1 ? 'Pool Atas (#1)' : 'Pool Bawah (#16)'}</span>
+                  </div>
+                  <select
+                    value={seed1TeamId}
+                    onChange={e => setSeed1TeamId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
+                  >
+                    <option value="">-- Pilih Juara 1 --</option>
+                    {roster.map(t => (
+                      <option key={t.id} value={t.id} className="bg-slate-900 text-white">
+                        {t.name} ({t.departmentOrigin})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
+                    <span>Juara 2 (Runner-Up)</span>
+                    <span className="text-amber-400 text-[10px]">{seed2Slot === 1 ? 'Pool Atas (#1)' : 'Pool Bawah (#16)'}</span>
+                  </div>
+                  <select
+                    value={seed2TeamId}
+                    onChange={e => setSeed2TeamId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
+                  >
+                    <option value="">-- Pilih Juara 2 --</option>
+                    {roster.map(t => (
+                      <option key={t.id} value={t.id} className="bg-slate-900 text-white">
+                        {t.name} ({t.departmentOrigin})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
 
-            {/* Unggulan 2 */}
-            <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/40 space-y-2">
-              <div className="flex items-center justify-between text-xs font-black text-amber-400">
-                <span>Unggulan 2 (Runner-up)</span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-amber-300">Slot #16 (Match 8 Bawah)</span>
+            {/* Box 2: Pasangan Juara 3 & 4 */}
+            <div className="p-4 rounded-xl bg-slate-900/90 border border-amber-500/30 space-y-3">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
+                  Pasangan Juara 3 & Juara 4
+                </span>
+                <button
+                  type="button"
+                  onClick={handleRandomize3rd4thPool}
+                  disabled={saving}
+                  className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-bold text-[11px] flex items-center space-x-1 transition-colors"
+                  title="Acak apakah Juara 3 di Pool Atas atau Pool Bawah"
+                >
+                  <Shuffle className="w-3.5 h-3.5" />
+                  <span>🎲 Acak Pool 3 & 4</span>
+                </button>
               </div>
-              <select
-                value={seed2TeamId}
-                onChange={e => setSeed2TeamId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
-              >
-                <option value="">-- Pilih Tim Unggulan 2 --</option>
-                {roster.map(t => (
-                  <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                    {t.name} ({t.departmentOrigin})
-                  </option>
-                ))}
-              </select>
-            </div>
 
-            {/* Unggulan 3 */}
-            <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/40 space-y-2">
-              <div className="flex items-center justify-between text-xs font-black text-amber-400">
-                <span>Unggulan 3 (Juara 3)</span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-amber-300">Slot #9 (Match 5)</span>
-              </div>
-              <select
-                value={seed3TeamId}
-                onChange={e => setSeed3TeamId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
-              >
-                <option value="">-- Pilih Tim Unggulan 3 --</option>
-                {roster.map(t => (
-                  <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                    {t.name} ({t.departmentOrigin})
-                  </option>
-                ))}
-              </select>
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
+                    <span>Juara 3 Tahun Lalu</span>
+                    <span className="text-amber-400 text-[10px]">{seed3Slot === 8 ? 'Pool Atas (#8)' : 'Pool Bawah (#9)'}</span>
+                  </div>
+                  <select
+                    value={seed3TeamId}
+                    onChange={e => setSeed3TeamId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
+                  >
+                    <option value="">-- Pilih Juara 3 --</option>
+                    {roster.map(t => (
+                      <option key={t.id} value={t.id} className="bg-slate-900 text-white">
+                        {t.name} ({t.departmentOrigin})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-            {/* Unggulan 4 */}
-            <div className="p-4 rounded-xl bg-slate-900 border border-amber-500/40 space-y-2">
-              <div className="flex items-center justify-between text-xs font-black text-amber-400">
-                <span>Unggulan 4 (Juara 4)</span>
-                <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-amber-300">Slot #8 (Match 4)</span>
+                <div>
+                  <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
+                    <span>Juara 4 Tahun Lalu</span>
+                    <span className="text-amber-400 text-[10px]">{seed4Slot === 8 ? 'Pool Atas (#8)' : 'Pool Bawah (#9)'}</span>
+                  </div>
+                  <select
+                    value={seed4TeamId}
+                    onChange={e => setSeed4TeamId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
+                  >
+                    <option value="">-- Pilih Juara 4 --</option>
+                    {roster.map(t => (
+                      <option key={t.id} value={t.id} className="bg-slate-900 text-white">
+                        {t.name} ({t.departmentOrigin})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <select
-                value={seed4TeamId}
-                onChange={e => setSeed4TeamId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
-              >
-                <option value="">-- Pilih Tim Unggulan 4 --</option>
-                {roster.map(t => (
-                  <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                    {t.name} ({t.departmentOrigin})
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex flex-wrap items-center justify-between pt-2 gap-3">
             <span className="text-xs text-slate-400">
-              Keempat tim unggulan ini tidak akan masuk ke dalam kocokan undian acak dan langsung diplot ke bagan.
+              Tim yang sudah diplot ke Pool otomatis dikeluarkan dari wadah undian acak.
             </span>
             <button
               type="button"
@@ -696,7 +863,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
               className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 flex items-center space-x-1.5 transition-all disabled:opacity-50"
             >
               <Pin className="w-4 h-4" />
-              <span>Kunci & Terapkan 4 Unggulan ke Bagan</span>
+              <span>Terapkan Posisi Unggulan Saat Ini ke Bagan</span>
             </button>
           </div>
         </div>
