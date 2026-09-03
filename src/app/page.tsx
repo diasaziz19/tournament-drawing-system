@@ -29,6 +29,7 @@ import { TeamBatchImporter } from '../components/setup/TeamBatchImporter';
 import { GroupStageVisualizer } from '../components/groups/GroupStageVisualizer';
 import { SuperAdminAuthModal } from '../components/admin/SuperAdminAuthModal';
 import { SuperAdminConfigPanel } from '../components/admin/SuperAdminConfigPanel';
+import { TextContentEditorModal } from '../components/admin/TextContentEditorModal';
 import { exportFixturesToCSV, exportTeamsToCSV, triggerPrintReport } from '../lib/export-utils';
 import { 
   Trophy, 
@@ -45,7 +46,9 @@ import {
   ShieldCheck, 
   Settings,
   Layers,
-  LogOut
+  LogOut,
+  Type,
+  Megaphone
 } from 'lucide-react';
 
 // Default initial tournament data for 18 teams
@@ -103,6 +106,7 @@ export default function TournamentDashboard() {
   // Super Admin Authentication State
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [isTextEditorOpen, setIsTextEditorOpen] = useState<boolean>(false);
   
   const [cloudSynced, setCloudSynced] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string>('Menghubungkan ke Cloud Firestore...');
@@ -439,7 +443,7 @@ export default function TournamentDashboard() {
           <div>
             <div className="flex items-center space-x-2">
               <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                Tournament Studio
+                {tournament.headerBadge || 'Tournament Studio'}
               </span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold flex items-center space-x-1">
                 <Wifi className="w-2.5 h-2.5" />
@@ -452,17 +456,35 @@ export default function TournamentDashboard() {
             <h1 className="text-base sm:text-lg font-black tracking-tight text-white">
               {tournament.title}
             </h1>
+            {tournament.subtitle && (
+              <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
+                {tournament.subtitle}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Global Toolbar */}
         <div className="flex items-center space-x-2 sm:space-x-3">
+          {/* Edit Teks & Banner Button for Super Admin */}
+          {isSuperAdmin && (
+            <button
+              onClick={() => setIsTextEditorOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 hover:text-white text-xs font-bold flex items-center space-x-1.5 transition-colors shadow-sm"
+              title="Edit judul turnamen, banner pengumuman, dan teks lainnya"
+            >
+              <Type className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">✏️ Edit Teks & Banner</span>
+              <span className="sm:hidden">✏️ Teks</span>
+            </button>
+          )}
+
           {/* Super Admin Status & Auth Button */}
           {isSuperAdmin ? (
             <div className="flex items-center space-x-2">
               <span className="px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center space-x-1.5">
                 <ShieldCheck className="w-4 h-4 text-amber-400" />
-                <span>Super Admin Aktif</span>
+                <span className="hidden sm:inline">Super Admin Aktif</span>
               </span>
               <button
                 onClick={handleLogoutSuperAdmin}
@@ -503,6 +525,24 @@ export default function TournamentDashboard() {
           </button>
         </div>
       </header>
+
+      {/* Announcement Running Banner (if configured) */}
+      {tournament.announcementText && (
+        <div className="bg-gradient-to-r from-amber-500/15 via-indigo-500/20 to-amber-500/15 border-b border-amber-500/30 px-4 sm:px-8 py-2 text-xs font-semibold text-amber-300 flex items-center justify-between no-print shadow-sm">
+          <div className="flex items-center space-x-2 truncate">
+            <Megaphone className="w-4 h-4 text-amber-400 flex-shrink-0 animate-pulse" />
+            <span className="truncate">{tournament.announcementText}</span>
+          </div>
+          {isSuperAdmin && (
+            <button
+              onClick={() => setIsTextEditorOpen(true)}
+              className="text-[10px] text-amber-400 hover:text-amber-200 underline ml-3 flex-shrink-0 font-bold"
+            >
+              Edit Pengumuman
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Main Tab Navigation */}
       <nav className="bg-slate-900/40 border-b border-slate-800/80 px-4 sm:px-8 py-2.5 flex items-center space-x-2 overflow-x-auto no-scrollbar no-print">
@@ -637,6 +677,8 @@ export default function TournamentDashboard() {
           <BracketTreeVisualizer
             matches={matches}
             isAdmin={isSuperAdmin}
+            tournament={tournament}
+            onOpenTextEditor={() => setIsTextEditorOpen(true)}
             onSaveScore={handleSaveScore}
           />
         )}
@@ -728,9 +770,27 @@ export default function TournamentDashboard() {
         }}
       />
 
+      {/* Super Admin Text Content & Banner Editor Modal */}
+      <TextContentEditorModal
+        isOpen={isTextEditorOpen}
+        onClose={() => setIsTextEditorOpen(false)}
+        tournament={tournament}
+        onTournamentUpdated={(updated) => setTournament(updated)}
+      />
+
       {/* Footer */}
-      <footer className="border-t border-slate-800/80 bg-slate-950 px-8 py-4 text-center text-xs text-slate-500 no-print">
-        Online Tournament Drawing & Management Cloud System • Google Firebase Firestore & Next.js
+      <footer className="border-t border-slate-800/80 bg-slate-950 px-4 sm:px-8 py-4 text-xs text-slate-500 no-print flex flex-col sm:flex-row items-center justify-between gap-2">
+        <span>{tournament.footerText || 'Online Tournament Drawing & Management Cloud System • Google Firebase Firestore & Next.js'}</span>
+        {isSuperAdmin && (
+          <button
+            onClick={() => setIsTextEditorOpen(true)}
+            className="text-[11px] text-slate-500 hover:text-amber-400 flex items-center space-x-1 transition-colors"
+            title="Edit teks footer dan branding"
+          >
+            <Type className="w-3 h-3" />
+            <span>Edit Teks Website</span>
+          </button>
+        )}
       </footer>
     </main>
   );

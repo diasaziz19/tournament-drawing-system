@@ -1,13 +1,15 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Match, TeamMatchSlot } from '../../types/tournament';
-import { Trophy, Clock, ZoomIn, ZoomOut, RotateCcw, ArrowRight, Star, Shield, LayoutGrid, Award } from 'lucide-react';
+import { Match, TeamMatchSlot, Tournament } from '../../types/tournament';
+import { Trophy, Clock, ZoomIn, ZoomOut, RotateCcw, ArrowRight, Star, Shield, LayoutGrid, Award, Pencil } from 'lucide-react';
 import { MatchScoreModal } from './MatchScoreModal';
 
 interface BracketTreeVisualizerProps {
   matches: Match[];
   isAdmin: boolean;
+  tournament?: Tournament;
+  onOpenTextEditor?: () => void;
   onSaveScore: (matchId: string, scores: {
     homeScore: number;
     awayScore: number;
@@ -19,6 +21,8 @@ interface BracketTreeVisualizerProps {
 export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
   matches,
   isAdmin,
+  tournament,
+  onOpenTextEditor,
   onSaveScore
 }) => {
   const [selectedMatch, setSelectedMatch] = useState<Match | null>(null);
@@ -197,8 +201,18 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
               {/* POOL ATAS (TOP HALF) -> FINALIS 1                    */}
               {/* ==================================================== */}
               <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 space-y-4">
-                <div className="text-[11px] font-black text-indigo-400 uppercase tracking-wider flex items-center space-x-1.5 pb-2 border-b border-slate-800">
-                  <span>Pool Atas (Undian 1 s/d 10 ➔ Menuju Finalis 1)</span>
+                <div className="text-[11px] font-black text-indigo-400 uppercase tracking-wider flex items-center justify-between pb-2 border-b border-slate-800">
+                  <span>{tournament?.poolAtasLabel || 'Pool Atas (Undian 1 s/d 10 ➔ Menuju Finalis 1)'}</span>
+                  {isAdmin && onOpenTextEditor && (
+                    <button
+                      onClick={onOpenTextEditor}
+                      className="text-[10px] text-slate-500 hover:text-amber-400 flex items-center space-x-1 font-normal transition-colors"
+                      title="Edit label header pool ini"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>Edit Label</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Section 1A: M1 & M7 & M4 -> M12 */}
@@ -319,14 +333,24 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
                     <Trophy className="w-8 h-8 text-slate-950 fill-slate-950" />
                   </div>
                   <div>
-                    <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest">
-                      Partai Puncak (2 Oktober)
+                    <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest flex items-center space-x-1.5">
+                      <span>{tournament?.finalBannerDate || 'Partai Puncak (2 Oktober)'}</span>
+                      {isAdmin && onOpenTextEditor && (
+                        <button
+                          onClick={onOpenTextEditor}
+                          className="text-[10px] text-amber-400/80 hover:text-amber-200 inline-flex items-center space-x-0.5 ml-2 font-normal"
+                          title="Edit teks banner Grand Final"
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                          <span>Edit</span>
+                        </button>
+                      )}
                     </span>
                     <h3 className="text-lg sm:text-xl font-black text-white">
-                      M#19 • Grand Final Turnamen
+                      {tournament?.finalBannerTitle || 'M#19 • Grand Final Turnamen'}
                     </h3>
                     <p className="text-xs text-slate-300">
-                      Finalis 1 (Menang M16) vs Finalis 2 (Menang M17)
+                      {tournament?.finalBannerSubtitle || 'Finalis 1 (Menang M16) vs Finalis 2 (Menang M17)'}
                     </p>
                   </div>
                 </div>
@@ -358,8 +382,18 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
               {/* POOL BAWAH (BOTTOM HALF) -> FINALIS 2                 */}
               {/* ==================================================== */}
               <div className="bg-slate-950/60 p-4 rounded-2xl border border-slate-800/80 space-y-4">
-                <div className="text-[11px] font-black text-indigo-400 uppercase tracking-wider flex items-center space-x-1.5 pb-2 border-b border-slate-800">
-                  <span>Pool Bawah (Undian 11 s/d 19 ➔ Menuju Finalis 2)</span>
+                <div className="text-[11px] font-black text-indigo-400 uppercase tracking-wider flex items-center justify-between pb-2 border-b border-slate-800">
+                  <span>{tournament?.poolBawahLabel || 'Pool Bawah (Undian 11 s/d 19 ➔ Menuju Finalis 2)'}</span>
+                  {isAdmin && onOpenTextEditor && (
+                    <button
+                      onClick={onOpenTextEditor}
+                      className="text-[10px] text-slate-500 hover:text-amber-400 flex items-center space-x-1 font-normal transition-colors"
+                      title="Edit label header pool ini"
+                    >
+                      <Pencil className="w-3 h-3" />
+                      <span>Edit Label</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Section 2A: M6 & M9 -> M14 */}

@@ -27,6 +27,15 @@ export type MatchStatus = 'scheduled' | 'live' | 'completed';
 export interface Tournament {
   id: string;
   title: string;
+  subtitle?: string;
+  headerBadge?: string;
+  announcementText?: string;
+  poolAtasLabel?: string;
+  poolBawahLabel?: string;
+  finalBannerTitle?: string;
+  finalBannerDate?: string;
+  finalBannerSubtitle?: string;
+  footerText?: string;
   slug: string;
   sportType: SportType;
   format: TournamentFormat;

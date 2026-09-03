@@ -17,6 +17,7 @@ import {
 import { 
   tournamentService 
 } from '../../lib/firestore-converters';
+import { TextContentEditorModal } from './TextContentEditorModal';
 import { 
   Settings, 
   Trophy, 
@@ -33,7 +34,8 @@ import {
   Pin,
   Dices,
   RotateCcw,
-  RefreshCw
+  RefreshCw,
+  Type
 } from 'lucide-react';
 
 interface SuperAdminConfigPanelProps {
@@ -129,6 +131,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
   const [roster, setRoster] = useState<Team[]>(teams);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isTextEditorOpen, setIsTextEditorOpen] = useState(false);
 
   // Dynamic Tim Unggulan (Seeded Teams Selection - Supports 2, 4, 8 or custom)
   const [seedItems, setSeedItems] = useState<SeedItemConfig[]>([
@@ -735,14 +738,55 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
             </h3>
           </div>
         </div>
+        <div className="flex items-center space-x-2.5">
+          <button
+            type="button"
+            onClick={() => setIsTextEditorOpen(true)}
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/20 flex items-center space-x-1.5 transition-colors cursor-pointer"
+          >
+            <Type className="w-4 h-4" />
+            <span>✏️ Edit Teks & Banner</span>
+          </button>
+
+          <button
+            onClick={onLogout}
+            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 transition-colors"
+          >
+            Keluar Mode Super Admin
+          </button>
+        </div>
+      </div>
+
+      {/* Quick Action: Kustomisasi Teks & Branding */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-950/80 via-slate-900 to-indigo-950/80 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-2.5 rounded-lg bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+            <Type className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-indigo-300">Editor Konten Teks, Banner & Branding</div>
+            <p className="text-[11px] text-slate-400">
+              Ubah judul turnamen, subjudul, running text pengumuman panitia, label header pool bagan, dan teks footer secara instan.
+            </p>
+          </div>
+        </div>
 
         <button
-          onClick={onLogout}
-          className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 transition-colors"
+          type="button"
+          onClick={() => setIsTextEditorOpen(true)}
+          className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md flex items-center space-x-1.5 transition-colors cursor-pointer"
         >
-          Keluar Mode Super Admin
+          <Type className="w-4 h-4" />
+          <span>Buka Editor Teks & Banner</span>
         </button>
       </div>
+
+      <TextContentEditorModal
+        isOpen={isTextEditorOpen}
+        onClose={() => setIsTextEditorOpen(false)}
+        tournament={tournament}
+        onTournamentUpdated={(updated) => onConfigSaved(updated, roster)}
+      />
 
       {statusMessage && (
         <div className={`p-4 rounded-xl text-xs flex items-center space-x-2 animate-in fade-in ${
