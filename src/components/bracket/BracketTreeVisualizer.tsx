@@ -359,11 +359,13 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
 
                 {/* Section 2A: M6 & M9 -> M14 */}
                 <div className="grid grid-cols-5 gap-4 items-center">
-                  {/* Col 1: Direct Byes (Undian 11..14) */}
-                  <div className="space-y-2">
-                    <SlotCell slotNum={11} slot={getSlot(m6, 'home')} isSeed seedRank={3} />
-                    <div className="text-[10px] text-center text-slate-500 font-bold">── Direct 16 Besar ──</div>
-                    <SlotCell slotNum={12} slot={getSlot(m6, 'away')} />
+                  {/* Col 1: No Playoff match here (Direct to 16 Besar) */}
+                  <div className="h-full flex items-center justify-center p-3">
+                    <div className="w-full border-t border-dashed border-slate-800/80 flex items-center justify-center">
+                      <span className="text-[10px] text-slate-600 font-medium px-2 bg-slate-950">
+                        Direct 16 Besar (Tanpa Playoff)
+                      </span>
+                    </div>
                   </div>
 
                   {/* Col 2: 16 Besar M6 & M9 */}
@@ -418,17 +420,16 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
 
                 {/* Section 2B: M10 & M3 & M11 -> M15 */}
                 <div className="grid grid-cols-5 gap-4 items-center pt-3 border-t border-slate-800/60">
-                  {/* Col 1: Playoff M3 (Undian 17 vs 18) & Direct Byes */}
+                  {/* Col 1: Playoff M3 (Undian 17 vs 18) ONLY */}
                   <div className="space-y-2">
-                    <div className="space-y-1">
-                      <SlotCell slotNum={15} slot={getSlot(m10, 'home')} compact />
-                      <SlotCell slotNum={16} slot={getSlot(m10, 'away')} compact />
+                    <div className="h-16 flex items-center justify-center border-b border-dashed border-slate-800/60 mb-2">
+                      <span className="text-[10px] text-slate-600 font-medium">
+                        Direct 16 Besar (Tanpa Playoff)
+                      </span>
                     </div>
-                    <div className="pt-2">
-                      <SlotCell slotNum={17} slot={getSlot(m3, 'home')} />
-                      <MatchButton match={m3} label="M#3 (Playoff)" onClick={() => setSelectedMatch(m3 || null)} />
-                      <SlotCell slotNum={18} slot={getSlot(m3, 'away')} />
-                    </div>
+                    <SlotCell slotNum={17} slot={getSlot(m3, 'home')} />
+                    <MatchButton match={m3} label="M#3 (Playoff)" onClick={() => setSelectedMatch(m3 || null)} />
+                    <SlotCell slotNum={18} slot={getSlot(m3, 'away')} />
                   </div>
 
                   {/* Col 2: 16 Besar M10 (Undian 15 vs 16) & M11 (Menang M3 vs Undian 19) */}
