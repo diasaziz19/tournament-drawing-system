@@ -164,7 +164,14 @@ export default function TournamentDashboard() {
       unsubTeams = onSnapshot(teamsRef, snap => {
         if (!snap.empty) {
           const cloudTeams = snap.docs.map(d => d.data());
-          setTeams(cloudTeams);
+          // Auto-sanitize EDUTORIUM: ensure debutant is strictly Pot 3 and not seeded
+          const sanitized = cloudTeams.map(t => {
+            if (t.name.toUpperCase().includes('EDUTORIUM') && (t.potTier !== 3 || t.seedNumber !== null)) {
+              return { ...t, potTier: 3 as const, seedNumber: null, drawnSlot: null };
+            }
+            return t;
+          });
+          setTeams(sanitized);
         }
       }, () => {});
 

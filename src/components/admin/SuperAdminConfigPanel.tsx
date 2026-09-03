@@ -117,10 +117,25 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     if (initializedSeedsRef.current) return;
     if (teams.length === 0) return;
 
-    const s1 = teams.find(t => t.seedNumber === 1);
-    const s2 = teams.find(t => t.seedNumber === 2);
-    const s3 = teams.find(t => t.seedNumber === 3);
-    const s4 = teams.find(t => t.seedNumber === 4);
+    // Check if EDUTORIUM is mistakenly flagged as seed or Pot 1
+    const edutorium = teams.find(t => t.name.toUpperCase().includes('EDUTORIUM'));
+    if (edutorium && (edutorium.seedNumber !== null || edutorium.potTier !== 3)) {
+      const corrected = teams.map(t => {
+        if (t.id === edutorium.id) {
+          return { ...t, potTier: 3 as const, seedNumber: null, drawnSlot: null };
+        }
+        return t;
+      });
+      setRoster(corrected);
+      tournamentService.batchSaveTeams(tournament.id, corrected).catch(() => {});
+    }
+
+    const isSeedEligible = (t: Team) => !t.name.toUpperCase().includes('EDUTORIUM') && t.potTier !== 3;
+
+    const s1 = teams.find(t => t.seedNumber === 1 && isSeedEligible(t));
+    const s2 = teams.find(t => t.seedNumber === 2 && isSeedEligible(t));
+    const s3 = teams.find(t => t.seedNumber === 3 && isSeedEligible(t));
+    const s4 = teams.find(t => t.seedNumber === 4 && isSeedEligible(t));
 
     if (s1) {
       setSeed1TeamId(s1.id);
@@ -139,7 +154,12 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
       if (s4.drawnSlot) setSeed4Slot(s4.drawnSlot);
     }
     initializedSeedsRef.current = true;
-  }, [teams]);
+  }, [teams, tournament.id]);
+
+  // Eligible teams for 4 Unggulan (excludes Pot 3 debutants like EDUTORIUM)
+  const seedEligibleTeams = useMemo(() => {
+    return roster.filter(t => !t.name.toUpperCase().includes('EDUTORIUM') && t.potTier !== 3);
+  }, [roster]);
 
   // Master Synchronizer: Updates local state, Cloud Firestore, Bracket tree & Drawing session simultaneously
   const syncRosterAndMatches = async (updatedRoster: Team[], msg: string) => {
@@ -453,6 +473,24 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
 
     setSeedSuccess(outcomeMsg);
     await syncRosterAndMatches(updatedRoster, outcomeMsg);
+  };
+
+  // Explicit cleaner for EDUTORIUM to ensure it is Pot 3 debutant and not seeded
+  const handleFixEdutorium = async () => {
+    const updatedRoster = roster.map(t => {
+      if (t.name.toUpperCase().includes('EDUTORIUM')) {
+        return { ...t, potTier: 3 as const, seedNumber: null, drawnSlot: null };
+      }
+      return t;
+    });
+    setRoster(updatedRoster);
+
+    if (seed1TeamId && roster.find(t => t.id === seed1TeamId)?.name.toUpperCase().includes('EDUTORIUM')) setSeed1TeamId('');
+    if (seed2TeamId && roster.find(t => t.id === seed2TeamId)?.name.toUpperCase().includes('EDUTORIUM')) setSeed2TeamId('');
+    if (seed3TeamId && roster.find(t => t.id === seed3TeamId)?.name.toUpperCase().includes('EDUTORIUM')) setSeed3TeamId('');
+    if (seed4TeamId && roster.find(t => t.id === seed4TeamId)?.name.toUpperCase().includes('EDUTORIUM')) setSeed4TeamId('');
+
+    await syncRosterAndMatches(updatedRoster, '✅ Tim EDUTORIUM berhasil diset ke Pot 3 (Debutan), dibebaskan dari slot unggulan, dan siap diundi acak normal!');
   };
 
   // Save and build full tournament architecture in Firestore
@@ -837,7 +875,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                   <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
                     <span>Juara 1 Tahun Lalu</span>
                     <span className="text-amber-400 text-[10px] font-mono">
-                      {seed1Slot === 1 ? 'Pool Atas (Slot 1)' : 'Pool Bawah (Slot 16)'}
+                      {seed1Slot === 3 ? 'Pool Atas (Undian 3)' : 'Pool Bawah (Undian 19)'}
                     </span>
                   </div>
                   <select
@@ -845,10 +883,10 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                     onChange={e => setSeed1TeamId(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
                   >
-                    <option value="">-- Pilih Juara 1 --</option>
-                    {roster.map(t => (
+                    <option value="">-- Pilih Juara 1 (Pot 1/2) --</option>
+                    {seedEligibleTeams.map(t => (
                       <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                        {t.name} ({t.departmentOrigin})
+                        {t.name} (Pot {t.potTier} - {t.departmentOrigin})
                       </option>
                     ))}
                   </select>
@@ -858,7 +896,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                   <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
                     <span>Juara 2 (Runner-Up)</span>
                     <span className="text-amber-400 text-[10px] font-mono">
-                      {seed2Slot === 1 ? 'Pool Atas (Slot 1)' : 'Pool Bawah (Slot 16)'}
+                      {seed2Slot === 3 ? 'Pool Atas (Undian 3)' : 'Pool Bawah (Undian 19)'}
                     </span>
                   </div>
                   <select
@@ -866,10 +904,10 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                     onChange={e => setSeed2TeamId(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
                   >
-                    <option value="">-- Pilih Juara 2 --</option>
-                    {roster.map(t => (
+                    <option value="">-- Pilih Juara 2 (Pot 1/2) --</option>
+                    {seedEligibleTeams.map(t => (
                       <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                        {t.name} ({t.departmentOrigin})
+                        {t.name} (Pot {t.potTier} - {t.departmentOrigin})
                       </option>
                     ))}
                   </select>
@@ -900,7 +938,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                   <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
                     <span>Juara 3 Tahun Lalu</span>
                     <span className="text-amber-400 text-[10px] font-mono">
-                      {seed3Slot === 8 ? 'Pool Atas (Slot 8)' : 'Pool Bawah (Slot 9)'}
+                      {seed3Slot === 8 ? 'Pool Atas (Undian 8)' : 'Pool Bawah (Undian 11)'}
                     </span>
                   </div>
                   <select
@@ -908,10 +946,10 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                     onChange={e => setSeed3TeamId(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
                   >
-                    <option value="">-- Pilih Juara 3 --</option>
-                    {roster.map(t => (
+                    <option value="">-- Pilih Juara 3 (Pot 1/2) --</option>
+                    {seedEligibleTeams.map(t => (
                       <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                        {t.name} ({t.departmentOrigin})
+                        {t.name} (Pot {t.potTier} - {t.departmentOrigin})
                       </option>
                     ))}
                   </select>
@@ -921,7 +959,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                   <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
                     <span>Juara 4 Tahun Lalu</span>
                     <span className="text-amber-400 text-[10px] font-mono">
-                      {seed4Slot === 8 ? 'Pool Atas (Slot 8)' : 'Pool Bawah (Slot 9)'}
+                      {seed4Slot === 8 ? 'Pool Atas (Undian 8)' : 'Pool Bawah (Undian 11)'}
                     </span>
                   </div>
                   <select
@@ -929,10 +967,10 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                     onChange={e => setSeed4TeamId(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white font-semibold outline-none focus:border-amber-400"
                   >
-                    <option value="">-- Pilih Juara 4 --</option>
-                    {roster.map(t => (
+                    <option value="">-- Pilih Juara 4 (Pot 1/2) --</option>
+                    {seedEligibleTeams.map(t => (
                       <option key={t.id} value={t.id} className="bg-slate-900 text-white">
-                        {t.name} ({t.departmentOrigin})
+                        {t.name} (Pot {t.potTier} - {t.departmentOrigin})
                       </option>
                     ))}
                   </select>
@@ -942,9 +980,17 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center justify-between pt-2 gap-3">
-            <span className="text-xs text-slate-400">
-              Tim yang sudah diplot ke Pool otomatis dikeluarkan dari wadah undian acak.
-            </span>
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={handleFixEdutorium}
+                disabled={saving}
+                className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 font-bold text-xs flex items-center space-x-1.5 transition-colors"
+                title="Pastikan EDUTORIUM berada di Pot 3 (Debutan) dan bebas dari unggulan"
+              >
+                <span>🛡️ Set Edutorium ke Pot 3 (Bukan Unggulan)</span>
+              </button>
+            </div>
             <button
               type="button"
               onClick={handlePlotSeededTeams}
