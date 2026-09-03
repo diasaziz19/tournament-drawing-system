@@ -137,8 +137,8 @@ export function getAvailableBracketSlots(teamCount: number): BracketSlotInfo[] {
   // Seed 3: Slot 9 (Match 5 Home)
   // Seed 4: Slot 8 (Match 4 Away)
 
-  // Playoff feeds are located at non-seed slots: e.g. Match 2 Away (Slot 4), Match 4 Home (Slot 7), Match 6 Away (Slot 12)
-  const playoffTargetSlots = [4, 7, 12, 14, 2, 10, 6, 15].slice(0, structure.playoffMatchesCount);
+  // Playoff feeds are located at: Match 1 Away (Slot 2), Match 4 Home (Slot 7), Match 8 Home (Slot 15)
+  const playoffTargetSlots = [2, 7, 15, 12].slice(0, structure.playoffMatchesCount);
   const playoffTargetSet = new Set(playoffTargetSlots);
 
   // R16 Slots (1 to 16)
@@ -166,14 +166,15 @@ export function getAvailableBracketSlots(teamCount: number): BracketSlotInfo[] {
   for (let p = 0; p < structure.playoffMatchesCount; p++) {
     const pNum = p + 1;
     const baseSlot = 100 + p * 2;
+    const targetInfo = pNum === 1 ? 'Menuju Match 1' : pNum === 2 ? 'Menuju Match 4' : 'Menuju Match 8';
     slots.push({
       slotId: baseSlot + 1,
-      label: `Playoff ${pNum} - Tim Home`,
+      label: `Playoff ${pNum} Home (${targetInfo})`,
       stage: 'playoff'
     });
     slots.push({
       slotId: baseSlot + 2,
-      label: `Playoff ${pNum} - Tim Away`,
+      label: `Playoff ${pNum} Away (${targetInfo})`,
       stage: 'playoff'
     });
   }
@@ -374,17 +375,15 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
   }
   roundMatchesByStage['quarter_final'] = qfMatches;
 
-  // Round of 16 (8 matches)
-  const r16Matches: Match[] = [];
   // Designate playoff feed slots:
-  // Playoff 1 feeds into Match 2 Away (Slot 4)
-  // Playoff 2 feeds into Match 4 Home (Slot 7)
-  // Playoff 3 feeds into Match 6 Away (Slot 12)
+  // Playoff 1 feeds into Match 1 Away (Slot 2) -> Lawan Unggulan 1
+  // Playoff 2 feeds into Match 4 Home (Slot 7) -> Menuju Match 4 (Lawan Unggulan 4)
+  // Playoff 3 feeds into Match 8 Home (Slot 15) -> Menuju Match 8 (Lawan Unggulan 2)
   const playoffFeedAssignments = [
-    { matchIdx: 1, isHome: false, slotNum: 4 }, // Playoff 1 -> M2 Away
-    { matchIdx: 3, isHome: true, slotNum: 7 },  // Playoff 2 -> M4 Home
-    { matchIdx: 5, isHome: false, slotNum: 12 },// Playoff 3 -> M6 Away
-    { matchIdx: 6, isHome: false, slotNum: 14 },// Playoff 4 (if >19 teams)
+    { matchIdx: 0, isHome: false, slotNum: 2 },  // Playoff 1 -> Match 1 R16
+    { matchIdx: 3, isHome: true, slotNum: 7 },   // Playoff 2 -> Match 4 R16
+    { matchIdx: 7, isHome: true, slotNum: 15 },  // Playoff 3 -> Match 8 R16
+    { matchIdx: 5, isHome: false, slotNum: 12 }, // Playoff 4 (if >19 teams)
   ];
 
   const playoffFeedsToUse = playoffFeedAssignments.slice(0, structure.playoffMatchesCount);

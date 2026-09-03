@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { Match, MatchStage } from '../../types/tournament';
-import { Trophy, Clock, Calendar, ChevronRight, ZoomIn, ZoomOut, RotateCcw, Star } from 'lucide-react';
+import { Trophy, Clock, ZoomIn, ZoomOut, RotateCcw, ArrowRight, Zap } from 'lucide-react';
 import { MatchScoreModal } from './MatchScoreModal';
 
 interface BracketTreeVisualizerProps {
@@ -56,6 +56,18 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
   const finalMatch = stagesMap.final[0] || null;
   const thirdPlaceMatch = stagesMap.third_place[0] || null;
 
+  // Map playoff matches to their exact R16 row targets:
+  // Playoff 1 -> Row 0 (Match 1 R16)
+  // Playoff 2 -> Row 3 (Match 4 R16)
+  // Playoff 3 -> Row 7 (Match 8 R16)
+  const playoffByR16Row = useMemo(() => {
+    const map: Record<number, { match: Match; pNum: number }> = {};
+    if (stagesMap.playoff[0]) map[0] = { match: stagesMap.playoff[0], pNum: 1 };
+    if (stagesMap.playoff[1]) map[3] = { match: stagesMap.playoff[1], pNum: 2 };
+    if (stagesMap.playoff[2]) map[7] = { match: stagesMap.playoff[2], pNum: 3 };
+    return map;
+  }, [stagesMap.playoff]);
+
   // Find Tournament Champion if final is completed
   const championName = useMemo(() => {
     if (finalMatch && finalMatch.status === 'completed' && finalMatch.winnerTeamId) {
@@ -82,10 +94,10 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
           </div>
           <div>
             <h2 className="text-lg font-black text-slate-100">
-              Bagan Pertandingan Resmi (Knockout Tree)
+              Bagan Pertandingan Resmi (Simetris & Terhubung)
             </h2>
             <p className="text-xs text-slate-400">
-              {hasPlayoffs ? `Format 19 Tim: 3 Laga Playoff + 13 Direct Byes (Termasuk 4 Tim Unggulan Terkunci)` : `Sistem Gugur Tunggal`}
+              {hasPlayoffs ? `Format 19 Tim: Playoff 1 ➔ Match 1 | Playoff 2 ➔ Match 4 | Playoff 3 ➔ Match 8 (Langsung Berdampingan)` : `Sistem Gugur Tunggal`}
             </p>
           </div>
         </div>
@@ -132,91 +144,127 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
         </div>
       )}
 
-      {/* Bracket Tree Container (Responsive Horizontal Scroll) */}
+      {/* Bracket Tree Container */}
       <div 
         className="w-full overflow-x-auto overflow-y-hidden p-6 sm:p-10 transition-transform origin-top-left"
         style={{ transform: `scale(${zoomLevel})`, transformOrigin: 'top left' }}
       >
-        <div className="inline-flex items-stretch space-x-8 sm:space-x-12 min-w-max pb-8">
-          {/* Column 1: Playoff / Preliminary Round */}
+        <div className="inline-flex items-start space-x-8 sm:space-x-12 min-w-max pb-8">
+          
+          {/* Column 1: Playoff Round (Aligned exactly row-by-row to R16 matches) */}
           {hasPlayoffs && (
-            <div className="flex flex-col justify-around w-72 space-y-6">
+            <div className="flex flex-col w-80 space-y-6">
               <div className="text-center pb-2 border-b border-rose-500/40">
                 <span className="text-xs font-black text-rose-400 tracking-wider uppercase">
-                  Babak Playoff ({stagesMap.playoff.length} Laga)
+                  Babak Playoff (3 Laga)
                 </span>
-                <p className="text-[10px] text-slate-400">Penyaringan 16 Besar (Hari ke-1)</p>
+                <p className="text-[10px] text-slate-400">Berdampingan Langsung Menuju 16 Besar</p>
               </div>
-              <div className="flex flex-col justify-around flex-1 space-y-8">
-                {stagesMap.playoff.map(match => (
-                  <MatchCard
-                    key={match.id}
-                    match={match}
-                    onClick={() => setSelectedMatch(match)}
-                  />
-                ))}
+
+              {/* 8 Row slots matching the 8 R16 matches */}
+              <div className="flex flex-col space-y-6">
+                {Array.from({ length: 8 }).map((_, rowIdx) => {
+                  const playoffItem = playoffByR16Row[rowIdx];
+                  if (playoffItem) {
+                    return (
+                      <div key={`playoff-row-${rowIdx}`} className="relative flex items-center min-h-[148px]">
+                        <div className="w-full">
+                          <MatchCard
+                            match={playoffItem.match}
+                            onClick={() => setSelectedMatch(playoffItem.match)}
+                          />
+                        </div>
+                        {/* Connecting line to R16 with arrow */}
+                        <div className="hidden sm:flex items-center absolute -right-6 top-1/2 -translate-y-1/2 z-10 text-rose-400 font-bold">
+                          <ArrowRight className="w-5 h-5 drop-shadow animate-pulse" />
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // Non-playoff row: Direct Bye
+                  return (
+                    <div 
+                      key={`direct-bye-row-${rowIdx}`} 
+                      className="min-h-[148px] flex items-center justify-center p-3 rounded-xl border border-dashed border-slate-800/80 bg-slate-950/40"
+                    >
+                      <div className="text-center space-y-1">
+                        <div className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold">
+                          <Zap className="w-3 h-3 text-amber-400" />
+                          <span>Direct Bye</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          Lolos Langsung ke 16 Besar
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Column 2: Round of 16 */}
+          {/* Column 2: Round of 16 (8 Matches) */}
           {hasR16 && (
-            <div className="flex flex-col justify-around w-72 space-y-6">
+            <div className="flex flex-col w-72 space-y-6">
               <div className="text-center pb-2 border-b border-indigo-500/40">
                 <span className="text-xs font-black text-indigo-400 tracking-wider uppercase">
                   Babak 16 Besar (8 Laga)
                 </span>
-                <p className="text-[10px] text-slate-400">4 Unggulan + 9 Direct Bye + 3 Playoff</p>
+                <p className="text-[10px] text-slate-400">4 Unggulan + 9 Bye + 3 Playoff</p>
               </div>
-              <div className="flex flex-col justify-around flex-1 space-y-6">
-                {stagesMap.round_of_16.map(match => (
-                  <MatchCard
-                    key={match.id}
-                    match={match}
-                    onClick={() => setSelectedMatch(match)}
-                  />
+              <div className="flex flex-col space-y-6">
+                {stagesMap.round_of_16.map((match, idx) => (
+                  <div key={match.id} className="min-h-[148px] flex flex-col justify-center">
+                    <MatchCard
+                      match={match}
+                      onClick={() => setSelectedMatch(match)}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Column 3: Quarterfinals */}
+          {/* Column 3: Quarterfinals (4 Matches - Centered between R16 pairs) */}
           {hasQF && (
-            <div className="flex flex-col justify-around w-64 space-y-6">
+            <div className="flex flex-col w-64 space-y-6">
               <div className="text-center pb-2 border-b border-cyan-500/40">
                 <span className="text-xs font-black text-cyan-400 tracking-wider uppercase">
                   Perempat Final (8 Besar)
                 </span>
                 <p className="text-[10px] text-slate-400">4 Pertandingan</p>
               </div>
-              <div className="flex flex-col justify-around flex-1 space-y-12">
+              <div className="flex flex-col justify-around flex-1 py-4">
                 {stagesMap.quarter_final.map(match => (
-                  <MatchCard
-                    key={match.id}
-                    match={match}
-                    onClick={() => setSelectedMatch(match)}
-                  />
+                  <div key={match.id} className="my-14 first:mt-6 last:mb-6">
+                    <MatchCard
+                      match={match}
+                      onClick={() => setSelectedMatch(match)}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Column 4: Semifinals */}
+          {/* Column 4: Semifinals (2 Matches - Centered between QF pairs) */}
           {hasSF && (
-            <div className="flex flex-col justify-around w-64 space-y-6">
+            <div className="flex flex-col w-64 space-y-6">
               <div className="text-center pb-2 border-b border-purple-500/40">
                 <span className="text-xs font-black text-purple-400 tracking-wider uppercase">
                   Semifinal (4 Besar)
                 </span>
                 <p className="text-[10px] text-slate-400">2 Pertandingan</p>
               </div>
-              <div className="flex flex-col justify-around flex-1 space-y-24">
+              <div className="flex flex-col justify-around flex-1 py-12">
                 {stagesMap.semi_final.map(match => (
-                  <MatchCard
-                    key={match.id}
-                    match={match}
-                    onClick={() => setSelectedMatch(match)}
-                  />
+                  <div key={match.id} className="my-36 first:mt-16 last:mb-16">
+                    <MatchCard
+                      match={match}
+                      onClick={() => setSelectedMatch(match)}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
@@ -301,6 +349,8 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, isFinal = false, onClick }
       className={`group relative rounded-xl border p-3.5 cursor-pointer transition-all duration-200 shadow-md ${
         isFinal
           ? 'bg-gradient-to-b from-slate-900 to-amber-950/40 border-amber-500/60 hover:border-amber-400 hover:shadow-amber-500/20 hover:shadow-lg'
+          : match.stage === 'playoff'
+          ? 'bg-gradient-to-b from-slate-900 to-rose-950/30 border-rose-500/50 hover:border-rose-400 hover:shadow-rose-500/10'
           : 'bg-slate-900/90 border-slate-800 hover:border-indigo-500/60 hover:shadow-indigo-500/10 hover:shadow-md'
       }`}
     >
@@ -383,7 +433,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, isFinal = false, onClick }
         <span>{isCompleted ? 'Selesai' : match.status === 'live' ? '🟢 Live' : 'Terjadwal'}</span>
         <span className="flex items-center text-indigo-400 group-hover:translate-x-0.5 transition-transform">
           <span>Detail / Skor</span>
-          <ChevronRight className="w-3 h-3 ml-0.5" />
+          <ArrowRight className="w-3 h-3 ml-0.5" />
         </span>
       </div>
     </div>
