@@ -71,6 +71,7 @@ export interface TeamMatchSlot {
   score: number | null;
   penaltyScore: number | null;
   logoUrl?: string;
+  seedNumber?: number | null;
 }
 
 export interface Match {

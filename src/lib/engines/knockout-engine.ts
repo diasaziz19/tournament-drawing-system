@@ -118,7 +118,8 @@ export function generateKnockoutBracket(config: KnockoutBracketConfig): Match[] 
         departmentOrigin: found.departmentOrigin,
         score: null,
         penaltyScore: null,
-        logoUrl: found.logoUrl
+        logoUrl: found.logoUrl,
+        seedNumber: found.seedNumber
       };
     }
     return {
@@ -650,7 +651,8 @@ export function advanceKnockoutWinner(
         departmentOrigin: winnerObj.departmentOrigin,
         score: null,
         penaltyScore: null,
-        logoUrl: winnerObj.logoUrl
+        logoUrl: winnerObj.logoUrl,
+        seedNumber: winnerObj.seedNumber
       };
 
       if (target.isNextHome) {
@@ -671,7 +673,8 @@ export function advanceKnockoutWinner(
         departmentOrigin: loserObj.departmentOrigin,
         score: null,
         penaltyScore: null,
-        logoUrl: loserObj.logoUrl
+        logoUrl: loserObj.logoUrl,
+        seedNumber: loserObj.seedNumber
       };
 
       if (target.isNextLoserHome) {

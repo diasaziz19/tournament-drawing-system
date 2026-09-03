@@ -543,11 +543,12 @@ interface SlotCellProps {
   slot: TeamMatchSlot | null | undefined;
   compact?: boolean;
   isSeed?: boolean;
-  seedRank?: 1 | 2 | 3 | 4;
+  seedRank?: number;
 }
 
 const SlotCell: React.FC<SlotCellProps> = ({ slotNum, slot, compact = false, isSeed = false, seedRank }) => {
   const isFilled = slot && slot.id !== null;
+  const activeSeed = slot?.seedNumber ?? (isSeed ? seedRank : undefined);
 
   return (
     <div className={`rounded-xl border transition-all ${
@@ -569,9 +570,9 @@ const SlotCell: React.FC<SlotCellProps> = ({ slotNum, slot, compact = false, isS
             </div>
           )}
         </div>
-        {isSeed && seedRank && (
+        {activeSeed && (
           <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30 flex-shrink-0 ml-1">
-            ★ U{seedRank}
+            ★ U{activeSeed}
           </span>
         )}
       </div>
