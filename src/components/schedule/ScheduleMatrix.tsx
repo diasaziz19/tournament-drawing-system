@@ -37,7 +37,8 @@ export const ScheduleMatrix: React.FC<ScheduleMatrixProps> = ({ matches, onMatch
       return true;
     }).sort((a, b) => {
       if (a.scheduledDate !== b.scheduledDate) return a.scheduledDate.localeCompare(b.scheduledDate);
-      return a.startTime.localeCompare(b.startTime);
+      if (a.startTime !== b.startTime) return a.startTime.localeCompare(b.startTime);
+      return a.matchNumber - b.matchNumber;
     });
   }, [matches, selectedDate, selectedPitch]);
 

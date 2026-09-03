@@ -43,7 +43,12 @@ export const BracketTreeVisualizer: React.FC<BracketTreeVisualizerProps> = ({
     });
 
     Object.keys(map).forEach(stage => {
-      map[stage].sort((a, b) => a.matchNumber - b.matchNumber);
+      map[stage].sort((a, b) => {
+        if (a.bracketPosition !== undefined && b.bracketPosition !== undefined) {
+          return a.bracketPosition - b.bracketPosition;
+        }
+        return a.matchNumber - b.matchNumber;
+      });
     });
 
     return map;

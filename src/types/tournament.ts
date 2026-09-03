@@ -93,6 +93,7 @@ export interface Match {
   pitch: string;                  // Pitch identifier
   status: MatchStatus;
   roundIndex?: number;            // 0 = Playoff, 1 = R16, 2 = QF, 3 = SF, 4 = Final
+  bracketPosition?: number;       // Visual vertical order within stage (0 to N-1)
 }
 
 export interface GroupStandingItem {
