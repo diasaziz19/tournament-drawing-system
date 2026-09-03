@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(ownerUid) {
+      return isAuthenticated() && (request.auth.uid == ownerUid || request.auth.token.admin == true);
+    }
+
+    function isTournamentAdmin(tournamentId) {
+      return isAuthenticated() && (
+        get(/databases/$(database)/documents/tournaments/$(tournamentId)).data.ownerUid == request.auth.uid ||
+        request.auth.token.admin == true
+      );
+    }
+
+    // =========================================================================
+    // 1. Tournaments Collection (Multi-tenant standalone schema)
+    // =========================================================================
+    match /tournaments/{tournamentId} {
+      // Unrestricted public read: Spectators, managers, and projectors can view the tournament
+      allow read: if true;
+
+      // Creation: Any authenticated organizer can create a tournament, setting themselves as owner
+      allow create: if isAuthenticated() && 
+                    request.resource.data.ownerUid == request.auth.uid;
+
+      // Update / Delete: Only the creator / tournament owner or super admin
+      allow update, delete: if isOwner(resource.data.ownerUid);
+
+      // --- Sub-collection: Teams ---
+      match /teams/{teamId} {
+        allow read: if true;
+        allow write: if isTournamentAdmin(tournamentId);
+      }
+
+      // --- Sub-collection: Matches (Scores, Brackets, Schedules) ---
+      match /matches/{matchId} {
+        allow read: if true;
+        allow write: if isTournamentAdmin(tournamentId);
+      }
+
+      // --- Sub-collection: Groups (Round-Robin Standings) ---
+      match /groups/{groupId} {
+        allow read: if true;
+        allow write: if isTournamentAdmin(tournamentId);
+      }
+
+      // --- Sub-collection: Drawing Sessions (Realtime Sync State) ---
+      match /drawing_sessions/{sessionId} {
+        allow read: if true;
+        allow write: if isTournamentAdmin(tournamentId);
+      }
+    }
+
+    // =========================================================================
+    // 2. Legacy / Existing Tournament Compatibility
+    // Preserves existing tournament_data collection without any disruption
+    // =========================================================================
+    match /tournament_data/{document=**} {
+      allow read: if true;
+      allow write: if true; // Matches existing live tournament mode
+    }
+  }
+}
