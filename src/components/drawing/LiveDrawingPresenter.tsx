@@ -21,6 +21,7 @@ import {
 import { Team, DrawingSession } from '../../types/tournament';
 import { tournamentService } from '../../lib/firestore-converters';
 import { getAvailableBracketSlots } from '../../lib/engines/knockout-engine';
+import { GlassBowlLotteryVisualizer } from './GlassBowlLotteryVisualizer';
 
 interface LiveDrawingPresenterProps {
   tournamentTitle: string;
@@ -296,138 +297,18 @@ export const LiveDrawingPresenter: React.FC<LiveDrawingPresenterProps> = ({
 
         <div className="w-full max-w-xl flex flex-col items-center">
           <AnimatePresence mode="wait">
-            {!currentTeam && session?.status !== 'completed' && (
-              <motion.div
-                key="idle-stage"
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                className="flex flex-col items-center text-center p-8 rounded-3xl bg-slate-900/60 backdrop-blur-xl border border-slate-800 shadow-2xl"
-              >
-                <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-amber-500 to-indigo-600 p-1 flex items-center justify-center shadow-2xl shadow-indigo-500/30 mb-5">
-                  <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center">
-                    <Sparkles className="w-10 h-10 text-amber-400 animate-spin" style={{ animationDuration: '6s' }} />
-                  </div>
-                </div>
-
-                <div className="mb-2 px-3.5 py-1 rounded-full bg-indigo-500/20 border border-indigo-400/40 text-indigo-300 text-xs font-black uppercase tracking-wider">
-                  Target Undian: {currentSlotLabel}
-                </div>
-
-                <h3 className="text-2xl font-bold text-slate-100 mb-2">
-                  Siap Melakukan Pengundian
-                </h3>
-                <p className="text-slate-400 text-xs sm:text-sm max-w-md">
-                  {isAdmin 
-                    ? `Pilih slot yang ingin diundi pada bar kontrol di bawah, lalu klik "Undi Slot". Begitu dikonfirmasi, tim langsung muncul di Bagan.` 
-                    : `Menunggu Panitia mengundi tim yang akan menempati ${currentSlotLabel}...`}
-                </p>
-
-                <div className="mt-6 flex items-center space-x-4 text-xs text-slate-300 bg-slate-800/80 px-4 py-2 rounded-full border border-slate-700">
-                  <span>Sisa Belum Diundi: <strong className="text-amber-400">{undrawnTeams.length}</strong></span>
-                  <span>•</span>
-                  <span>Sudah Terplot: <strong className="text-emerald-400">{drawnTeams.length}</strong></span>
-                </div>
-              </motion.div>
-            )}
-
-            {isDrawing && !isRevealed && (
-              <motion.div
-                key="drawing-animation"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.1 }}
-                className="flex flex-col items-center justify-center p-12 text-center"
-              >
-                <motion.div
-                  animate={{
-                    rotateY: [0, 360, 720, 1080],
-                    rotateX: [0, 15, -15, 0],
-                    scale: [1, 1.1, 0.95, 1.05, 1]
-                  }}
-                  transition={{ duration: 2.8, ease: "easeInOut", repeat: Infinity }}
-                  className="w-44 h-44 rounded-full bg-gradient-to-br from-amber-400 via-rose-500 to-indigo-600 p-1.5 shadow-2xl shadow-amber-500/30 flex items-center justify-center cursor-pointer"
-                >
-                  <div className="w-full h-full rounded-full bg-slate-950 flex flex-col items-center justify-center border-4 border-amber-300/40">
-                    <Shield className="w-16 h-16 text-amber-300 animate-pulse" />
-                    <span className="text-xs font-bold text-amber-400 tracking-widest mt-1 uppercase">
-                      Mengundi...
-                    </span>
-                  </div>
-                </motion.div>
-
-                <motion.p
-                  animate={{ opacity: [0.5, 1, 0.5] }}
-                  transition={{ duration: 1.2, repeat: Infinity }}
-                  className="mt-6 text-lg font-bold text-slate-200 tracking-wide"
-                >
-                  {session?.message || 'Mengacak Tim...'}
-                </motion.p>
-              </motion.div>
-            )}
-
-            {isRevealed && currentTeam && (
-              <motion.div
-                key="revealed-card"
-                initial={{ opacity: 0, rotateY: 90, scale: 0.8 }}
-                animate={{ opacity: 1, rotateY: 0, scale: 1 }}
-                transition={{ type: "spring", stiffness: 200, damping: 20 }}
-                className="w-full max-w-md p-8 rounded-3xl bg-gradient-to-b from-slate-900 to-indigo-950/90 border-2 border-amber-400/80 shadow-2xl shadow-amber-500/20 text-center flex flex-col items-center"
-              >
-                <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400 text-amber-300 text-xs font-bold uppercase tracking-wider mb-4">
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>Pot {currentTeam.potTier} • {currentSlotLabel}</span>
-                </div>
-
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: "spring" }}
-                  className="w-24 h-24 rounded-2xl bg-gradient-to-tr from-amber-400 to-indigo-500 p-1 mb-4 shadow-xl shadow-amber-500/20"
-                >
-                  <div className="w-full h-full rounded-2xl bg-slate-900 flex items-center justify-center overflow-hidden">
-                    {currentTeam.logoUrl ? (
-                      <img src={currentTeam.logoUrl} alt={currentTeam.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <Shield className="w-12 h-12 text-amber-400" />
-                    )}
-                  </div>
-                </motion.div>
-
-                <h2 className="text-3xl sm:text-4xl font-black text-white tracking-tight drop-shadow-md">
-                  {currentTeam.name}
-                </h2>
-                <p className="text-slate-300 font-medium text-base mt-1">
-                  {currentTeam.departmentOrigin}
-                </p>
-                {currentTeam.officialName && (
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Official: {currentTeam.officialName}
-                  </p>
-                )}
-
-                <div className="mt-6 w-full py-3 px-4 rounded-xl bg-slate-800/80 border border-slate-700 flex items-center justify-between text-sm">
-                  <span className="text-slate-400">Penempatan Slot Bagan:</span>
-                  <span className="font-extrabold text-amber-400 text-sm flex items-center space-x-1">
-                    <span>{currentSlotLabel}</span>
-                    <ArrowRight className="w-4 h-4 ml-1 text-amber-400" />
-                  </span>
-                </div>
-
-                {isAdmin && (
-                  <motion.button
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                    onClick={handleConfirmSlot}
-                    className="mt-6 w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-sm shadow-lg shadow-emerald-500/25 flex items-center justify-center space-x-2 transition-all"
-                  >
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>Kunci & Munculkan di Bagan</span>
-                  </motion.button>
-                )}
-              </motion.div>
-            )}
+            {session?.status !== 'completed' ? (
+              <GlassBowlLotteryVisualizer
+                undrawnTeams={undrawnTeams}
+                isDrawing={isDrawing}
+                isRevealed={isRevealed}
+                currentTeam={currentTeam}
+                currentSlotLabel={currentSlotLabel}
+                isAdmin={isAdmin}
+                onConfirmSlot={handleConfirmSlot}
+                statusMessage={session?.message}
+              />
+            ) : null}
 
             {session?.status === 'completed' && (
               <motion.div
