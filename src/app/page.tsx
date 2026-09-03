@@ -400,11 +400,20 @@ export default function TournamentDashboard() {
   const handleMasterConfigSaved = (updatedTournament: Tournament, updatedTeams: Team[]) => {
     setTournament(updatedTournament);
     setTeams(updatedTeams);
-    // Switch to visualizer corresponding to the format
+
     if (updatedTournament.format === 'knockout') {
-      setActiveTab('bracket');
-    } else {
-      setActiveTab('groups');
+      const newMatches = generateKnockoutBracket({
+        tournamentId: updatedTournament.id,
+        teams: updatedTeams,
+        startDate: updatedTournament.startDate,
+        dailyStartTime: updatedTournament.dailyStartTime,
+        matchDurationMinutes: updatedTournament.matchDurationMinutes,
+        breakMinutes: updatedTournament.breakMinutes,
+        pitches: updatedTournament.pitches,
+        hasThirdPlacePlayoff: updatedTournament.hasThirdPlacePlayoff,
+        maxMatchesPerDayPerTeam: updatedTournament.maxMatchesPerDayPerTeam
+      });
+      setMatches(newMatches);
     }
   };
 

@@ -117,6 +117,11 @@ export const tournamentService = {
     });
   },
 
+  async deleteTeam(tournamentId: string, teamId: string): Promise<void> {
+    const docRef = collections.teamDoc(tournamentId, teamId);
+    await deleteDoc(docRef);
+  },
+
   async updateDrawingSession(tournamentId: string, session: Partial<DrawingSession>): Promise<void> {
     const docRef = collections.drawingSessionDoc(tournamentId, 'current');
     await setDoc(docRef, {

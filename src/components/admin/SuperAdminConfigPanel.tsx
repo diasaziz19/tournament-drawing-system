@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Tournament, 
   TournamentFormat, 
@@ -22,20 +22,18 @@ import {
   Trophy, 
   RotateCw, 
   Layers, 
-  Calendar, 
-  Clock, 
   Check, 
   AlertCircle, 
   Plus, 
   Trash2, 
   Sparkles, 
   Save,
-  Users,
-  Shield,
   Shuffle,
   Star,
   Pin,
-  Dices
+  Dices,
+  RotateCcw,
+  RefreshCw
 } from 'lucide-react';
 
 interface SuperAdminConfigPanelProps {
@@ -89,7 +87,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
   const [dailyStart, setDailyStart] = useState<string>(tournament.dailyStartTime);
   const [pitchesText, setPitchesText] = useState<string>(tournament.pitches.join(', '));
 
-  // Team roster draft
+  // Team roster draft synchronized with teams prop
   const [roster, setRoster] = useState<Team[]>(teams);
   const [saving, setSaving] = useState(false);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -108,12 +106,21 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
 
   const [seedSuccess, setSeedSuccess] = useState<string | null>(null);
 
-  // Initialize seeded team selections if any exist
+  // Synchronize roster when teams prop updates (from Firestore stream or Live Drawing)
   useEffect(() => {
-    const s1 = roster.find(t => t.drawnSlot === 1 || t.drawnSlot === 16 && t.seedNumber === 1 || t.seedNumber === 1);
-    const s2 = roster.find(t => t.drawnSlot === 16 || t.drawnSlot === 1 && t.seedNumber === 2 || t.seedNumber === 2);
-    const s3 = roster.find(t => t.drawnSlot === 9 || t.drawnSlot === 8 && t.seedNumber === 3 || t.seedNumber === 3);
-    const s4 = roster.find(t => t.drawnSlot === 8 || t.drawnSlot === 9 && t.seedNumber === 4 || t.seedNumber === 4);
+    setRoster(teams);
+  }, [teams]);
+
+  // Initialize seeded team selections ONLY ONCE on mount or when empty
+  const initializedSeedsRef = useRef(false);
+  useEffect(() => {
+    if (initializedSeedsRef.current) return;
+    if (teams.length === 0) return;
+
+    const s1 = teams.find(t => t.seedNumber === 1);
+    const s2 = teams.find(t => t.seedNumber === 2);
+    const s3 = teams.find(t => t.seedNumber === 3);
+    const s4 = teams.find(t => t.seedNumber === 4);
 
     if (s1) {
       setSeed1TeamId(s1.id);
@@ -131,7 +138,53 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
       setSeed4TeamId(s4.id);
       if (s4.drawnSlot) setSeed4Slot(s4.drawnSlot);
     }
-  }, [roster]);
+    initializedSeedsRef.current = true;
+  }, [teams]);
+
+  // Master Synchronizer: Updates local state, Cloud Firestore, Bracket tree & Drawing session simultaneously
+  const syncRosterAndMatches = async (updatedRoster: Team[], msg: string) => {
+    const pitches = pitchesText.split(',').map(p => p.trim()).filter(Boolean);
+    const newMatches = generateKnockoutBracket({
+      tournamentId: tournament.id,
+      teams: updatedRoster,
+      startDate,
+      dailyStartTime: dailyStart,
+      matchDurationMinutes: duration,
+      breakMinutes: breakTime,
+      pitches: pitches.length > 0 ? pitches : ['Lapangan 1'],
+      hasThirdPlacePlayoff: hasThirdPlace,
+      maxMatchesPerDayPerTeam: 1
+    });
+
+    try {
+      setSaving(true);
+      // 1. Batch save teams to Firestore
+      await tournamentService.batchSaveTeams(tournament.id, updatedRoster);
+      // 2. Batch save matches to Firestore
+      await tournamentService.batchSaveMatches(tournament.id, newMatches);
+      
+      // 3. Update drawing session with currently occupied team IDs
+      const activeDrawnIds = updatedRoster.filter(t => t.drawnSlot !== null).map(t => t.id);
+      await tournamentService.updateDrawingSession(tournament.id, {
+        status: 'idle',
+        currentTeam: null,
+        currentSlot: null,
+        isRevealed: false,
+        revealedTeamIds: activeDrawnIds,
+        message: 'Data Slot Bagan & Undian Telah Disinkronkan'
+      });
+
+      // 4. Update parent dashboard state
+      onConfigSaved(tournament, updatedRoster);
+      setStatusMessage({ type: 'success', text: msg });
+      setTimeout(() => setStatusMessage(null), 5000);
+    } catch (err: any) {
+      console.error('Error syncing roster and matches:', err);
+      setStatusMessage({ type: 'error', text: err.message || 'Gagal menyimpan ke Firestore' });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Generate blank template teams based on target count
   const handleGenerateTemplateTeams = (count: number) => {
@@ -186,12 +239,13 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
       seedNumber: null,
       drawnSlot: null
     };
-    setRoster([...roster, newTeam]);
-    setTargetTeamCount(roster.length + 1);
+    const updated = [...roster, newTeam];
+    setRoster(updated);
+    setTargetTeamCount(updated.length);
   };
 
-  // Remove individual team row
-  const handleRemoveTeam = (teamId: string) => {
+  // Remove individual team row and sync with Firestore & Bracket
+  const handleRemoveTeam = async (teamId: string) => {
     if (roster.length <= 2) {
       alert('Minimal harus ada 2 tim dalam turnamen.');
       return;
@@ -199,6 +253,58 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     const updated = roster.filter(t => t.id !== teamId);
     setRoster(updated);
     setTargetTeamCount(updated.length);
+
+    if (seed1TeamId === teamId) setSeed1TeamId('');
+    if (seed2TeamId === teamId) setSeed2TeamId('');
+    if (seed3TeamId === teamId) setSeed3TeamId('');
+    if (seed4TeamId === teamId) setSeed4TeamId('');
+
+    try {
+      await tournamentService.deleteTeam(tournament.id, teamId);
+    } catch (e) {}
+
+    await syncRosterAndMatches(updated, 'Tim berhasil dihapus. Bagan dan daftar undian otomatis diperbarui.');
+  };
+
+  // Clear single team's slot (returns team back to undrawn pool and frees up bracket slot)
+  const handleClearTeamSlot = async (teamId: string) => {
+    const updatedRoster = roster.map(t => {
+      if (t.id === teamId) {
+        return { ...t, drawnSlot: null, seedNumber: null };
+      }
+      return t;
+    });
+    setRoster(updatedRoster);
+
+    if (seed1TeamId === teamId) setSeed1TeamId('');
+    if (seed2TeamId === teamId) setSeed2TeamId('');
+    if (seed3TeamId === teamId) setSeed3TeamId('');
+    if (seed4TeamId === teamId) setSeed4TeamId('');
+
+    await syncRosterAndMatches(updatedRoster, 'Slot tim berhasil dikosongkan! Tim kembali ke wadah undian dan slot di bagan kembali terbuka.');
+  };
+
+  // Clear all random slots while preserving seeded teams
+  const handleResetAllRandomSlots = async () => {
+    const confirmReset = window.confirm('Kosongkan semua slot undian acak? (4 Tim Unggulan akan tetap dipertahankan di bagan)');
+    if (!confirmReset) return;
+
+    const updatedRoster = roster.map(t => {
+      const isSeeded = t.seedNumber && [1, 2, 3, 4].includes(t.seedNumber);
+      return isSeeded ? t : { ...t, drawnSlot: null };
+    });
+    setRoster(updatedRoster);
+    await syncRosterAndMatches(updatedRoster, 'Semua slot undian acak berhasil dikosongkan. Tim kembali ke wadah undian!');
+  };
+
+  // Complete reset of ALL slots including seeded teams
+  const handleResetAllSlotsCompletely = async () => {
+    const confirmReset = window.confirm('PERINGATAN: Kosongkan SELURUH slot bagan termasuk posisi 4 Tim Unggulan?');
+    if (!confirmReset) return;
+
+    const updatedRoster = roster.map(t => ({ ...t, drawnSlot: null }));
+    setRoster(updatedRoster);
+    await syncRosterAndMatches(updatedRoster, 'Seluruh slot bagan telah dikosongkan total! Semua tim siap diundi.');
   };
 
   // Update specific team field
@@ -209,35 +315,6 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
       }
       return t;
     }));
-  };
-
-  // Helper: Persist plotted seeds to Firestore & local state
-  const savePlottedSeeds = async (updatedRoster: Team[], successMsg: string) => {
-    const pitches = pitchesText.split(',').map(p => p.trim()).filter(Boolean);
-    const newMatches = generateKnockoutBracket({
-      tournamentId: tournament.id,
-      teams: updatedRoster,
-      startDate,
-      dailyStartTime: dailyStart,
-      matchDurationMinutes: duration,
-      breakMinutes: breakTime,
-      pitches: pitches.length > 0 ? pitches : ['Lapangan 1'],
-      hasThirdPlacePlayoff: hasThirdPlace,
-      maxMatchesPerDayPerTeam: 1
-    });
-
-    try {
-      setSaving(true);
-      await tournamentService.batchSaveTeams(tournament.id, updatedRoster);
-      await tournamentService.batchSaveMatches(tournament.id, newMatches);
-      onConfigSaved(tournament, updatedRoster);
-      setSeedSuccess(successMsg);
-      setTimeout(() => setSeedSuccess(null), 6000);
-    } catch (err: any) {
-      setStatusMessage({ type: 'error', text: err.message || 'Gagal menyimpan ke Firestore' });
-    } finally {
-      setSaving(false);
-    }
   };
 
   // Manual Plotting of 4 Seeded Teams to Assigned Slots
@@ -269,7 +346,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     });
 
     setRoster(updatedRoster);
-    await savePlottedSeeds(updatedRoster, '📌 4 Tim Unggulan berhasil diplot ke Bagan! Nama mereka langsung muncul di Bagan Pertandingan.');
+    await syncRosterAndMatches(updatedRoster, '📌 4 Tim Unggulan berhasil diplot ke Bagan! Nama mereka langsung muncul di Bagan Pertandingan.');
   };
 
   // Randomize Pool for Juara 1 & 2 (Pool Atas vs Pool Bawah)
@@ -298,10 +375,11 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     setRoster(updatedRoster);
 
     const outcomeMsg = isT1Top
-      ? `🎲 Hasil Acak Pool: Juara 1 (${t1.name}) $\\rightarrow$ Pool Atas (Slot #1) & Juara 2 (${t2.name}) $\\rightarrow$ Pool Bawah (Slot #16)`
-      : `🎲 Hasil Acak Pool: Juara 2 (${t2.name}) $\\rightarrow$ Pool Atas (Slot #1) & Juara 1 (${t1.name}) $\\rightarrow$ Pool Bawah (Slot #16)`;
+      ? `🎲 Hasil Acak Pool: Juara 1 (${t1.name}) ➔ Pool Atas (Slot #1) & Juara 2 (${t2.name}) ➔ Pool Bawah (Slot #16)`
+      : `🎲 Hasil Acak Pool: Juara 1 (${t1.name}) ➔ Pool Bawah (Slot #16) & Juara 2 (${t2.name}) ➔ Pool Atas (Slot #1)`;
 
-    await savePlottedSeeds(updatedRoster, outcomeMsg);
+    setSeedSuccess(outcomeMsg);
+    await syncRosterAndMatches(updatedRoster, outcomeMsg);
   };
 
   // Randomize Pool for Juara 3 & 4 (Pool Atas vs Pool Bawah)
@@ -330,10 +408,11 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     setRoster(updatedRoster);
 
     const outcomeMsg = isT3Top
-      ? `🎲 Hasil Acak Pool: Juara 3 (${t3.name}) $\\rightarrow$ Pool Atas (Slot #8) & Juara 4 (${t4.name}) $\\rightarrow$ Pool Bawah (Slot #9)`
-      : `🎲 Hasil Acak Pool: Juara 4 (${t4.name}) $\\rightarrow$ Pool Atas (Slot #8) & Juara 3 (${t3.name}) $\\rightarrow$ Pool Bawah (Slot #9)`;
+      ? `🎲 Hasil Acak Pool: Juara 3 (${t3.name}) ➔ Pool Atas (Slot #8) & Juara 4 (${t4.name}) ➔ Pool Bawah (Slot #9)`
+      : `🎲 Hasil Acak Pool: Juara 3 (${t3.name}) ➔ Pool Bawah (Slot #9) & Juara 4 (${t4.name}) ➔ Pool Atas (Slot #8)`;
 
-    await savePlottedSeeds(updatedRoster, outcomeMsg);
+    setSeedSuccess(outcomeMsg);
+    await syncRosterAndMatches(updatedRoster, outcomeMsg);
   };
 
   // Randomize all 4 seeds simultaneously
@@ -370,8 +449,10 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
     });
     setRoster(updatedRoster);
 
-    const outcomeMsg = `🎉 Hasil Acak 4 Besar Selesai!\n[Pool Atas: ${isT1Top ? t1.name : t2.name} (Slot 1) & ${isT3Top ? t3.name : t4.name} (Slot 8)]\n[Pool Bawah: ${isT1Top ? t2.name : t1.name} (Slot 16) & ${isT3Top ? t4.name : t3.name} (Slot 9)]`;
-    await savePlottedSeeds(updatedRoster, outcomeMsg);
+    const outcomeMsg = `🎉 Hasil Acak 4 Besar Selesai!\n• Juara 1 (${t1.name}): ${isT1Top ? 'Pool Atas (Slot #1)' : 'Pool Bawah (Slot #16)'}\n• Juara 2 (${t2.name}): ${isT1Top ? 'Pool Bawah (Slot #16)' : 'Pool Atas (Slot #1)'}\n• Juara 3 (${t3.name}): ${isT3Top ? 'Pool Atas (Slot #8)' : 'Pool Bawah (Slot #9)'}\n• Juara 4 (${t4.name}): ${isT3Top ? 'Pool Bawah (Slot #9)' : 'Pool Atas (Slot #8)'}`;
+
+    setSeedSuccess(outcomeMsg);
+    await syncRosterAndMatches(updatedRoster, outcomeMsg);
   };
 
   // Save and build full tournament architecture in Firestore
@@ -708,7 +789,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                   </span>
                 </h4>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  Tentukan 4 tim terbaik tahun lalu. Anda bisa mengacak penempatan Pool Atas vs Pool Bawah secara adil, atau menguncinya langsung ke bagan.
+                  Pilih 4 tim unggulan dari daftar tim. Anda bebas memilih tim apa pun, lalu acak pool atau terapkan ke bagan.
                 </p>
               </div>
             </div>
@@ -755,7 +836,9 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                 <div>
                   <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
                     <span>Juara 1 Tahun Lalu</span>
-                    <span className="text-amber-400 text-[10px]">{seed1Slot === 1 ? 'Pool Atas (#1)' : 'Pool Bawah (#16)'}</span>
+                    <span className="text-amber-400 text-[10px] font-mono">
+                      {seed1Slot === 1 ? 'Pool Atas (Slot 1)' : 'Pool Bawah (Slot 16)'}
+                    </span>
                   </div>
                   <select
                     value={seed1TeamId}
@@ -774,7 +857,9 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                 <div>
                   <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
                     <span>Juara 2 (Runner-Up)</span>
-                    <span className="text-amber-400 text-[10px]">{seed2Slot === 1 ? 'Pool Atas (#1)' : 'Pool Bawah (#16)'}</span>
+                    <span className="text-amber-400 text-[10px] font-mono">
+                      {seed2Slot === 1 ? 'Pool Atas (Slot 1)' : 'Pool Bawah (Slot 16)'}
+                    </span>
                   </div>
                   <select
                     value={seed2TeamId}
@@ -814,7 +899,9 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                 <div>
                   <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
                     <span>Juara 3 Tahun Lalu</span>
-                    <span className="text-amber-400 text-[10px]">{seed3Slot === 8 ? 'Pool Atas (#8)' : 'Pool Bawah (#9)'}</span>
+                    <span className="text-amber-400 text-[10px] font-mono">
+                      {seed3Slot === 8 ? 'Pool Atas (Slot 8)' : 'Pool Bawah (Slot 9)'}
+                    </span>
                   </div>
                   <select
                     value={seed3TeamId}
@@ -833,7 +920,9 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                 <div>
                   <div className="flex items-center justify-between text-[11px] text-slate-300 font-bold mb-1">
                     <span>Juara 4 Tahun Lalu</span>
-                    <span className="text-amber-400 text-[10px]">{seed4Slot === 8 ? 'Pool Atas (#8)' : 'Pool Bawah (#9)'}</span>
+                    <span className="text-amber-400 text-[10px] font-mono">
+                      {seed4Slot === 8 ? 'Pool Atas (Slot 8)' : 'Pool Bawah (Slot 9)'}
+                    </span>
                   </div>
                   <select
                     value={seed4TeamId}
@@ -956,25 +1045,50 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
         </div>
       </div>
 
-      {/* 5. Tabel Input & Edit Roster Tim Manual */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
+      {/* 5. Tabel Input & Edit Roster Tim Manual + Aksi Hapus Slot Per Tim */}
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
-              4. Input & Edit Data Tim ({roster.length} Tim)
+              4. Input & Manajemen Roster Tim ({roster.length} Tim)
             </label>
             <p className="text-[11px] text-slate-400">
-              Superadmin dapat mengedit nama tim, official, dan instansi langsung pada baris di bawah ini.
+              Superadmin dapat mengedit data, menghapus slot tim secara individual, atau mengosongkan seluruh slot undian.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleAddTeam}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold border border-slate-700 flex items-center space-x-1 transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Tambah Tim Manual</span>
-          </button>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={handleResetAllRandomSlots}
+              disabled={saving}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 text-xs font-bold border border-slate-700 flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+              title="Mengosongkan semua slot undian acak dan mengembalikan tim ke wadah undian"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Kosongkan Slot Undian Acak</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetAllSlotsCompletely}
+              disabled={saving}
+              className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold border border-rose-500/40 flex items-center space-x-1.5 transition-colors disabled:opacity-50"
+              title="Mengosongkan seluruh slot bagan termasuk posisi unggulan"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Reset Total Semua Slot</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleAddTeam}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold border border-slate-700 flex items-center space-x-1 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Tambah Tim Manual</span>
+            </button>
+          </div>
         </div>
 
         <div className="max-h-96 overflow-y-auto border border-slate-800 rounded-2xl bg-slate-950">
@@ -986,8 +1100,8 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                 <th className="py-2.5 px-3">Official</th>
                 <th className="py-2.5 px-3">Fakultas / Instansi</th>
                 <th className="py-2.5 px-3 text-center w-24">Pot Tier</th>
-                <th className="py-2.5 px-3 text-center w-28">Status Slot</th>
-                <th className="py-2.5 px-3 text-center w-12">Aksi</th>
+                <th className="py-2.5 px-3 text-center w-40">Status Slot Bagan</th>
+                <th className="py-2.5 px-3 text-center w-12">Hapus</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -1033,12 +1147,24 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                   </td>
                   <td className="py-2 px-3 text-center">
                     {team.drawnSlot !== null ? (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/30">
-                        Slot #{team.drawnSlot}
-                      </span>
+                      <div className="flex items-center justify-center space-x-2">
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/30">
+                          Slot #{team.drawnSlot}
+                          {team.seedNumber && [1, 2, 3, 4].includes(team.seedNumber) && ` (Unggulan ${team.seedNumber})`}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleClearTeamSlot(team.id)}
+                          disabled={saving}
+                          className="px-2 py-0.5 rounded bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 border border-rose-500/40 text-[10px] font-bold transition-colors disabled:opacity-50"
+                          title="Hapus slot ini agar tim kembali ke wadah undian acak"
+                        >
+                          Hapus Slot
+                        </button>
+                      </div>
                     ) : (
                       <span className="text-[10px] text-slate-500 italic">
-                        Belum Diundi
+                        Belum Terisi (Wadah Undian)
                       </span>
                     )}
                   </td>
@@ -1047,7 +1173,7 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
                       type="button"
                       onClick={() => handleRemoveTeam(team.id)}
                       className="p-1.5 text-slate-500 hover:text-rose-400 rounded-lg hover:bg-slate-800 transition-colors"
-                      title="Hapus Tim"
+                      title="Hapus Tim dari Turnamen"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
