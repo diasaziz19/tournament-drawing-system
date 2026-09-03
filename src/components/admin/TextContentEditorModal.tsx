@@ -92,9 +92,9 @@ export const TextContentEditorModal: React.FC<TextContentEditorModalProps> = ({
       const updated: Tournament = {
         ...tournament,
         title: title.trim() || 'Turnamen Minisoccer Dies Natalis UMS 2026',
-        subtitle: subtitle.trim() || undefined,
+        subtitle: subtitle.trim() || '',
         headerBadge: headerBadge.trim() || 'Tournament Studio',
-        announcementText: announcementText.trim() || undefined,
+        announcementText: announcementText.trim() || '',
         poolAtasLabel: poolAtasLabel.trim() || 'POOL ATAS (UNDIAN 1 S/D 10 ➔ MENUJU FINALIS 1)',
         poolBawahLabel: poolBawahLabel.trim() || 'POOL BAWAH (UNDIAN 11 S/D 19 ➔ MENUJU FINALIS 2)',
         finalBannerDate: finalBannerDate.trim() || 'Partai Puncak (2 Oktober)',
@@ -104,16 +104,25 @@ export const TextContentEditorModal: React.FC<TextContentEditorModalProps> = ({
         updatedAt: Date.now()
       };
 
-      await tournamentService.updateTournament(tournament.id, updated);
+      // Instantly update parent state
       onTournamentUpdated(updated);
+
+      // Persist to Firestore
+      try {
+        await tournamentService.saveTournament(updated);
+      } catch (saveErr) {
+        console.warn('saveTournament fallback to updateTournament:', saveErr);
+        await tournamentService.updateTournament(tournament.id, updated);
+      }
+
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
         onClose();
       }, 900);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save tournament text contents:', err);
-      alert('Gagal menyimpan perubahan teks ke Cloud Firestore.');
+      alert('Gagal menyimpan perubahan teks: ' + (err?.message || 'Pastikan koneksi internet stabil'));
     } finally {
       setSaving(false);
     }

@@ -456,7 +456,7 @@ export default function TournamentDashboard() {
             <h1 className="text-base sm:text-lg font-black tracking-tight text-white">
               {tournament.title}
             </h1>
-            {tournament.subtitle && (
+            {Boolean(tournament.subtitle?.trim()) && (
               <p className="text-[11px] text-slate-400 font-medium truncate mt-0.5">
                 {tournament.subtitle}
               </p>
@@ -527,7 +527,7 @@ export default function TournamentDashboard() {
       </header>
 
       {/* Announcement Running Banner (if configured) */}
-      {tournament.announcementText && (
+      {Boolean(tournament.announcementText?.trim()) && (
         <div className="bg-gradient-to-r from-amber-500/15 via-indigo-500/20 to-amber-500/15 border-b border-amber-500/30 px-4 sm:px-8 py-2 text-xs font-semibold text-amber-300 flex items-center justify-between no-print shadow-sm">
           <div className="flex items-center space-x-2 truncate">
             <Megaphone className="w-4 h-4 text-amber-400 flex-shrink-0 animate-pulse" />

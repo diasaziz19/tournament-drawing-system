@@ -75,6 +75,11 @@ export const tournamentService = {
     await setDoc(docRef, tournament, { merge: true });
   },
 
+  async updateTournament(tournamentId: string, data: Partial<Tournament>): Promise<void> {
+    const docRef = collections.tournamentDoc(tournamentId);
+    await setDoc(docRef, { ...data, id: tournamentId } as Tournament, { merge: true });
+  },
+
   async batchSaveTeams(tournamentId: string, teams: Team[]): Promise<void> {
     for (const team of teams) {
       const docRef = collections.teamDoc(tournamentId, team.id);
