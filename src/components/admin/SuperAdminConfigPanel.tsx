@@ -781,12 +781,14 @@ export const SuperAdminConfigPanel: React.FC<SuperAdminConfigPanelProps> = ({
         </button>
       </div>
 
-      <TextContentEditorModal
-        isOpen={isTextEditorOpen}
-        onClose={() => setIsTextEditorOpen(false)}
-        tournament={tournament}
-        onTournamentUpdated={(updated) => onConfigSaved(updated, roster)}
-      />
+      {isTextEditorOpen && (
+        <TextContentEditorModal
+          isOpen={isTextEditorOpen}
+          onClose={() => setIsTextEditorOpen(false)}
+          tournament={tournament}
+          onTournamentUpdated={(updated) => onConfigSaved(updated, roster)}
+        />
+      )}
 
       {statusMessage && (
         <div className={`p-4 rounded-xl text-xs flex items-center space-x-2 animate-in fade-in ${

@@ -57,6 +57,7 @@ export const GlassBowlLotteryVisualizer: React.FC<GlassBowlLotteryVisualizerProp
   currentSlotLabel,
   isAdmin,
   onConfirmSlot,
+  onCancelDraw,
   statusMessage
 }) => {
   // Generate representation balls inside the bowl for undrawn teams (up to 14)

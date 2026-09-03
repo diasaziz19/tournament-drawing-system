@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Type, 
@@ -29,31 +29,46 @@ export const TextContentEditorModal: React.FC<TextContentEditorModalProps> = ({
   tournament,
   onTournamentUpdated
 }) => {
-  const [title, setTitle] = useState(tournament.title || 'Turnamen Minisoccer Dies Natalis UMS 2026');
-  const [subtitle, setSubtitle] = useState(tournament.subtitle || '');
-  const [headerBadge, setHeaderBadge] = useState(tournament.headerBadge || 'Tournament Studio');
-  const [announcementText, setAnnouncementText] = useState(tournament.announcementText || '');
+  const [title, setTitle] = useState(tournament?.title || 'Turnamen Minisoccer Dies Natalis UMS 2026');
+  const [subtitle, setSubtitle] = useState(tournament?.subtitle || '');
+  const [headerBadge, setHeaderBadge] = useState(tournament?.headerBadge || 'Tournament Studio');
+  const [announcementText, setAnnouncementText] = useState(tournament?.announcementText || '');
   const [poolAtasLabel, setPoolAtasLabel] = useState(
-    tournament.poolAtasLabel || 'POOL ATAS (UNDIAN 1 S/D 10 ➔ MENUJU FINALIS 1)'
+    tournament?.poolAtasLabel || 'POOL ATAS (UNDIAN 1 S/D 10 ➔ MENUJU FINALIS 1)'
   );
   const [poolBawahLabel, setPoolBawahLabel] = useState(
-    tournament.poolBawahLabel || 'POOL BAWAH (UNDIAN 11 S/D 19 ➔ MENUJU FINALIS 2)'
+    tournament?.poolBawahLabel || 'POOL BAWAH (UNDIAN 11 S/D 19 ➔ MENUJU FINALIS 2)'
   );
   const [finalBannerDate, setFinalBannerDate] = useState(
-    tournament.finalBannerDate || 'Partai Puncak (2 Oktober)'
+    tournament?.finalBannerDate || 'Partai Puncak (2 Oktober)'
   );
   const [finalBannerTitle, setFinalBannerTitle] = useState(
-    tournament.finalBannerTitle || 'M#19 • Grand Final Turnamen'
+    tournament?.finalBannerTitle || 'M#19 • Grand Final Turnamen'
   );
   const [finalBannerSubtitle, setFinalBannerSubtitle] = useState(
-    tournament.finalBannerSubtitle || 'Finalis 1 (Menang M16) vs Finalis 2 (Menang M17)'
+    tournament?.finalBannerSubtitle || 'Finalis 1 (Menang M16) vs Finalis 2 (Menang M17)'
   );
   const [footerText, setFooterText] = useState(
-    tournament.footerText || 'Online Tournament Drawing & Management Cloud System • Google Firebase Firestore & Next.js'
+    tournament?.footerText || 'Online Tournament Drawing & Management Cloud System • Google Firebase Firestore & Next.js'
   );
 
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (tournament) {
+      setTitle(tournament.title || 'Turnamen Minisoccer Dies Natalis UMS 2026');
+      setSubtitle(tournament.subtitle || '');
+      setHeaderBadge(tournament.headerBadge || 'Tournament Studio');
+      setAnnouncementText(tournament.announcementText || '');
+      setPoolAtasLabel(tournament.poolAtasLabel || 'POOL ATAS (UNDIAN 1 S/D 10 ➔ MENUJU FINALIS 1)');
+      setPoolBawahLabel(tournament.poolBawahLabel || 'POOL BAWAH (UNDIAN 11 S/D 19 ➔ MENUJU FINALIS 2)');
+      setFinalBannerDate(tournament.finalBannerDate || 'Partai Puncak (2 Oktober)');
+      setFinalBannerTitle(tournament.finalBannerTitle || 'M#19 • Grand Final Turnamen');
+      setFinalBannerSubtitle(tournament.finalBannerSubtitle || 'Finalis 1 (Menang M16) vs Finalis 2 (Menang M17)');
+      setFooterText(tournament.footerText || 'Online Tournament Drawing & Management Cloud System • Google Firebase Firestore & Next.js');
+    }
+  }, [tournament, isOpen]);
 
   if (!isOpen) return null;
 

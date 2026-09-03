@@ -771,12 +771,14 @@ export default function TournamentDashboard() {
       />
 
       {/* Super Admin Text Content & Banner Editor Modal */}
-      <TextContentEditorModal
-        isOpen={isTextEditorOpen}
-        onClose={() => setIsTextEditorOpen(false)}
-        tournament={tournament}
-        onTournamentUpdated={(updated) => setTournament(updated)}
-      />
+      {isTextEditorOpen && (
+        <TextContentEditorModal
+          isOpen={isTextEditorOpen}
+          onClose={() => setIsTextEditorOpen(false)}
+          tournament={tournament}
+          onTournamentUpdated={(updated) => setTournament(updated)}
+        />
+      )}
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950 px-4 sm:px-8 py-4 text-xs text-slate-500 no-print flex flex-col sm:flex-row items-center justify-between gap-2">
