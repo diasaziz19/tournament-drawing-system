@@ -27,6 +27,8 @@ import { BracketTreeVisualizer } from '../components/bracket/BracketTreeVisualiz
 import { ScheduleMatrix } from '../components/schedule/ScheduleMatrix';
 import { TeamBatchImporter } from '../components/setup/TeamBatchImporter';
 import { GroupStageVisualizer } from '../components/groups/GroupStageVisualizer';
+import { SuperAdminAuthModal } from '../components/admin/SuperAdminAuthModal';
+import { SuperAdminConfigPanel } from '../components/admin/SuperAdminConfigPanel';
 import { exportFixturesToCSV, exportTeamsToCSV, triggerPrintReport } from '../lib/export-utils';
 import { 
   Trophy, 
@@ -41,7 +43,9 @@ import {
   Unlock, 
   Wifi, 
   ShieldCheck, 
-  PlayCircle 
+  Settings,
+  Layers,
+  LogOut
 } from 'lucide-react';
 
 // Default initial tournament data for 18 teams
@@ -93,14 +97,28 @@ export default function TournamentDashboard() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [drawingSession, setDrawingSession] = useState<DrawingSession | null>(null);
   
-  const [activeTab, setActiveTab] = useState<'drawing' | 'bracket' | 'schedule' | 'teams' | 'groups'>('drawing');
-  const [isAdmin, setIsAdmin] = useState<boolean>(true);
+  const [activeTab, setActiveTab] = useState<'drawing' | 'bracket' | 'schedule' | 'teams' | 'groups' | 'admin'>('drawing');
+  
+  // Super Admin Authentication State
+  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  
   const [cloudSynced, setCloudSynced] = useState<boolean>(false);
   const [syncMessage, setSyncMessage] = useState<string>('Menghubungkan ke Cloud Firestore...');
 
+  // Check stored session storage for super admin authentication
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const auth = sessionStorage.getItem('superadmin_auth');
+      if (auth === 'true') {
+        setIsSuperAdmin(true);
+      }
+    }
+  }, []);
+
   // Initialize initial knockout bracket if none exists
   useEffect(() => {
-    if (matches.length === 0) {
+    if (matches.length === 0 && tournament.format === 'knockout') {
       const initialMatches = generateKnockoutBracket({
         tournamentId: tournament.id,
         teams: teams,
@@ -123,6 +141,7 @@ export default function TournamentDashboard() {
     let unsubTournament: (() => void) | undefined;
     let unsubTeams: (() => void) | undefined;
     let unsubMatches: (() => void) | undefined;
+    let unsubGroups: (() => void) | undefined;
     let unsubSession: (() => void) | undefined;
 
     try {
@@ -158,7 +177,16 @@ export default function TournamentDashboard() {
         }
       }, () => {});
 
-      // 4. Listen to Drawing Session
+      // 4. Listen to Groups sub-collection
+      const groupsRef = collections.groups(tournament.id);
+      unsubGroups = onSnapshot(groupsRef, snap => {
+        if (!snap.empty) {
+          const cloudGroups = snap.docs.map(d => d.data());
+          setGroups(cloudGroups);
+        }
+      }, () => {});
+
+      // 5. Listen to Drawing Session
       const sessionRef = collections.drawingSessionDoc(tournament.id, 'current');
       unsubSession = onSnapshot(sessionRef, snap => {
         if (snap.exists()) {
@@ -174,34 +202,50 @@ export default function TournamentDashboard() {
       if (unsubTournament) unsubTournament();
       if (unsubTeams) unsubTeams();
       if (unsubMatches) unsubMatches();
+      if (unsubGroups) unsubGroups();
       if (unsubSession) unsubSession();
     };
   }, [tournament.id]);
+
+  // Handle Logout Super Admin
+  const handleLogoutSuperAdmin = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('superadmin_auth');
+    }
+    setIsSuperAdmin(false);
+    if (activeTab === 'admin') {
+      setActiveTab('drawing');
+    }
+  };
 
   // Assign drawn slot to team
   const handleSlotAssigned = async (teamId: string, slotNumber: number) => {
     const updated = teams.map(t => t.id === teamId ? { ...t, drawnSlot: slotNumber } : t);
     setTeams(updated);
 
-    // Re-generate knockout bracket with new slot assignments
-    const regeneratedMatches = generateKnockoutBracket({
-      tournamentId: tournament.id,
-      teams: updated,
-      startDate: tournament.startDate,
-      dailyStartTime: tournament.dailyStartTime,
-      matchDurationMinutes: tournament.matchDurationMinutes,
-      breakMinutes: tournament.breakMinutes,
-      pitches: tournament.pitches,
-      hasThirdPlacePlayoff: tournament.hasThirdPlacePlayoff,
-      maxMatchesPerDayPerTeam: tournament.maxMatchesPerDayPerTeam
-    });
-    setMatches(regeneratedMatches);
+    if (tournament.format === 'knockout') {
+      const regeneratedMatches = generateKnockoutBracket({
+        tournamentId: tournament.id,
+        teams: updated,
+        startDate: tournament.startDate,
+        dailyStartTime: tournament.dailyStartTime,
+        matchDurationMinutes: tournament.matchDurationMinutes,
+        breakMinutes: tournament.breakMinutes,
+        pitches: tournament.pitches,
+        hasThirdPlacePlayoff: tournament.hasThirdPlacePlayoff,
+        maxMatchesPerDayPerTeam: tournament.maxMatchesPerDayPerTeam
+      });
+      setMatches(regeneratedMatches);
 
-    // Persist to Firestore if available
-    try {
-      await tournamentService.batchSaveTeams(tournament.id, updated);
-      await tournamentService.batchSaveMatches(tournament.id, regeneratedMatches);
-    } catch (e) {}
+      try {
+        await tournamentService.batchSaveTeams(tournament.id, updated);
+        await tournamentService.batchSaveMatches(tournament.id, regeneratedMatches);
+      } catch (e) {}
+    } else {
+      try {
+        await tournamentService.batchSaveTeams(tournament.id, updated);
+      } catch (e) {}
+    }
   };
 
   // Score save handler with auto-advancement
@@ -214,17 +258,47 @@ export default function TournamentDashboard() {
       awayPenalty?: number | null;
     }
   ) => {
-    const { updatedMatches } = advanceKnockoutWinner(matches, matchId, scores);
-    setMatches(updatedMatches);
+    if (tournament.format === 'knockout') {
+      const { updatedMatches } = advanceKnockoutWinner(matches, matchId, scores);
+      setMatches(updatedMatches);
 
-    // Persist to Cloud Firestore
-    try {
-      await tournamentService.batchSaveMatches(tournament.id, updatedMatches);
-    } catch (e) {}
+      try {
+        await tournamentService.batchSaveMatches(tournament.id, updatedMatches);
+      } catch (e) {}
+    } else {
+      // Group match update
+      const updatedMatches = matches.map(m => {
+        if (m.id === matchId) {
+          return {
+            ...m,
+            homeTeam: { ...m.homeTeam, score: scores.homeScore, penaltyScore: scores.homePenalty ?? null },
+            awayTeam: { ...m.awayTeam, score: scores.awayScore, penaltyScore: scores.awayPenalty ?? null },
+            status: 'completed' as const
+          };
+        }
+        return m;
+      });
+      setMatches(updatedMatches);
+
+      // Re-calculate group standings
+      const updatedGroups = groups.map(g => {
+        const gMatches = updatedMatches.filter(m => m.groupName === g.groupName);
+        const gTeams = teams.filter(t => g.teamIds.includes(t.id));
+        const newStandings = calculateGroupStandings(gTeams, gMatches);
+        return { ...g, standings: newStandings };
+      });
+      setGroups(updatedGroups);
+
+      try {
+        await tournamentService.batchSaveMatches(tournament.id, updatedMatches);
+        await tournamentService.batchSaveGroups(tournament.id, updatedGroups);
+      } catch (e) {}
+    }
   };
 
   // Re-generate bracket handler
   const handleGenerateBracket = async () => {
+    if (tournament.format !== 'knockout') return;
     const newMatches = generateKnockoutBracket({
       tournamentId: tournament.id,
       teams: teams,
@@ -245,23 +319,45 @@ export default function TournamentDashboard() {
   // Team import handler
   const handleImportTeams = async (newTeams: Team[]) => {
     setTeams(newTeams);
-    const newMatches = generateKnockoutBracket({
-      tournamentId: tournament.id,
-      teams: newTeams,
-      startDate: tournament.startDate,
-      dailyStartTime: tournament.dailyStartTime,
-      matchDurationMinutes: tournament.matchDurationMinutes,
-      breakMinutes: tournament.breakMinutes,
-      pitches: tournament.pitches,
-      hasThirdPlacePlayoff: tournament.hasThirdPlacePlayoff,
-      maxMatchesPerDayPerTeam: tournament.maxMatchesPerDayPerTeam
-    });
-    setMatches(newMatches);
-    try {
-      await tournamentService.batchSaveTeams(tournament.id, newTeams);
-      await tournamentService.batchSaveMatches(tournament.id, newMatches);
-    } catch (e) {}
+    if (tournament.format === 'knockout') {
+      const newMatches = generateKnockoutBracket({
+        tournamentId: tournament.id,
+        teams: newTeams,
+        startDate: tournament.startDate,
+        dailyStartTime: tournament.dailyStartTime,
+        matchDurationMinutes: tournament.matchDurationMinutes,
+        breakMinutes: tournament.breakMinutes,
+        pitches: tournament.pitches,
+        hasThirdPlacePlayoff: tournament.hasThirdPlacePlayoff,
+        maxMatchesPerDayPerTeam: tournament.maxMatchesPerDayPerTeam
+      });
+      setMatches(newMatches);
+      try {
+        await tournamentService.batchSaveTeams(tournament.id, newTeams);
+        await tournamentService.batchSaveMatches(tournament.id, newMatches);
+      } catch (e) {}
+    } else {
+      try {
+        await tournamentService.batchSaveTeams(tournament.id, newTeams);
+      } catch (e) {}
+    }
   };
+
+  // Callback when SuperAdmin applies master configuration
+  const handleMasterConfigSaved = (updatedTournament: Tournament, updatedTeams: Team[]) => {
+    setTournament(updatedTournament);
+    setTeams(updatedTeams);
+    // Switch to visualizer corresponding to the format
+    if (updatedTournament.format === 'knockout') {
+      setActiveTab('bracket');
+    } else {
+      setActiveTab('groups');
+    }
+  };
+
+  // Determine active tab navigation items based on tournament format
+  const isKnockout = tournament.format === 'knockout';
+  const isGroupFormat = tournament.format === 'group_single' || tournament.format === 'group_double' || tournament.format === 'group_knockout';
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
@@ -280,6 +376,9 @@ export default function TournamentDashboard() {
                 <Wifi className="w-2.5 h-2.5" />
                 <span>{cloudSynced ? 'Cloud Online' : 'Active'}</span>
               </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-bold uppercase">
+                {tournament.format.replace('_', ' ')}
+              </span>
             </div>
             <h1 className="text-base sm:text-lg font-black tracking-tight text-white">
               {tournament.title}
@@ -289,19 +388,31 @@ export default function TournamentDashboard() {
 
         {/* Global Toolbar */}
         <div className="flex items-center space-x-2 sm:space-x-3">
-          {/* Admin / Spectator Switch */}
-          <button
-            onClick={() => setIsAdmin(!isAdmin)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 border ${
-              isAdmin
-                ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
-                : 'bg-slate-800 border-slate-700 text-slate-300'
-            }`}
-            title="Ganti Mode Tampilan (Admin vs Spectator)"
-          >
-            {isAdmin ? <Unlock className="w-3.5 h-3.5 text-amber-400" /> : <Lock className="w-3.5 h-3.5 text-slate-400" />}
-            <span>{isAdmin ? 'Mode Panitia (Admin)' : 'Mode Penonton'}</span>
-          </button>
+          {/* Super Admin Status & Auth Button */}
+          {isSuperAdmin ? (
+            <div className="flex items-center space-x-2">
+              <span className="px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold flex items-center space-x-1.5">
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>Super Admin Aktif</span>
+              </span>
+              <button
+                onClick={handleLogoutSuperAdmin}
+                className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700 text-xs"
+                title="Keluar Mode Super Admin"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs border border-slate-700 transition-colors flex items-center space-x-1.5 shadow-sm"
+              title="Masuk sebagai Super Admin untuk mengatur turnamen"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>Login Super Admin</span>
+            </button>
+          )}
 
           {/* Export Options */}
           <button
@@ -326,52 +437,128 @@ export default function TournamentDashboard() {
 
       {/* Main Tab Navigation */}
       <nav className="bg-slate-900/40 border-b border-slate-800/80 px-4 sm:px-8 py-2.5 flex items-center space-x-2 overflow-x-auto no-scrollbar no-print">
-        {[
-          { id: 'drawing', label: '🎯 Live Drawing', icon: Sparkles },
-          { id: 'bracket', label: '🏆 Bagan Pertandingan', icon: Trophy },
-          { id: 'schedule', label: '📅 Matriks Jadwal', icon: Calendar },
-          { id: 'teams', label: '👥 Roster & Impor Tim', icon: Users },
-          { id: 'groups', label: '📊 Babak Grup', icon: Table }
-        ].map(tab => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 whitespace-nowrap ${
-                isActive
-                  ? 'bg-gradient-to-r from-amber-500 to-indigo-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+        {/* Live Drawing */}
+        <button
+          onClick={() => setActiveTab('drawing')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 whitespace-nowrap ${
+            activeTab === 'drawing'
+              ? 'bg-gradient-to-r from-amber-500 to-indigo-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>🎯 Live Drawing</span>
+        </button>
 
-        {isAdmin && (
+        {/* Bagan Knockout (if Knockout or Multi-stage) */}
+        {(isKnockout || tournament.format === 'group_knockout') && (
+          <button
+            onClick={() => setActiveTab('bracket')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 whitespace-nowrap ${
+              activeTab === 'bracket'
+                ? 'bg-gradient-to-r from-amber-500 to-indigo-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Trophy className="w-4 h-4" />
+            <span>🏆 Bagan Pertandingan</span>
+          </button>
+        )}
+
+        {/* Babak Grup (if Group-based format) */}
+        {isGroupFormat && (
+          <button
+            onClick={() => setActiveTab('groups')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 whitespace-nowrap ${
+              activeTab === 'groups'
+                ? 'bg-gradient-to-r from-amber-500 to-indigo-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
+          >
+            <Table className="w-4 h-4" />
+            <span>📊 Babak Grup</span>
+          </button>
+        )}
+
+        {/* Schedule Matrix */}
+        <button
+          onClick={() => setActiveTab('schedule')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 whitespace-nowrap ${
+            activeTab === 'schedule'
+              ? 'bg-gradient-to-r from-amber-500 to-indigo-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          <span>📅 Matriks Jadwal</span>
+        </button>
+
+        {/* Team Roster */}
+        <button
+          onClick={() => setActiveTab('teams')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 whitespace-nowrap ${
+            activeTab === 'teams'
+              ? 'bg-gradient-to-r from-amber-500 to-indigo-600 text-white shadow-md'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>👥 Roster Tim ({teams.length})</span>
+        </button>
+
+        {/* Super Admin Control Panel Tab */}
+        {isSuperAdmin ? (
+          <button
+            onClick={() => setActiveTab('admin')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 whitespace-nowrap border ${
+              activeTab === 'admin'
+                ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-black'
+                : 'text-amber-400 border-amber-500/30 hover:bg-amber-500/10'
+            }`}
+          >
+            <Settings className="w-4 h-4" />
+            <span>⚙️ Master Setup (Super Admin)</span>
+          </button>
+        ) : (
+          <button
+            onClick={() => setIsAuthModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-500 hover:text-slate-300 hover:bg-slate-800/40 flex items-center space-x-1.5 whitespace-nowrap"
+          >
+            <Lock className="w-3.5 h-3.5" />
+            <span>⚙️ Master Setup</span>
+          </button>
+        )}
+
+        {isSuperAdmin && isKnockout && (
           <button
             onClick={handleGenerateBracket}
             className="ml-auto px-3.5 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/50 text-indigo-200 text-xs font-semibold flex items-center space-x-1.5 transition-colors whitespace-nowrap"
             title="Hitung Ulang Bagan & Jadwal Rest Time"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            <span>Generate Bagan Otomatis</span>
+            <span>Generate Ulang Bagan</span>
           </button>
         )}
       </nav>
 
       {/* Main Dynamic View Area */}
       <div className="flex-1 p-4 sm:p-8 max-w-7xl mx-auto w-full space-y-8">
+        {activeTab === 'admin' && isSuperAdmin && (
+          <SuperAdminConfigPanel
+            tournament={tournament}
+            teams={teams}
+            onConfigSaved={handleMasterConfigSaved}
+            onLogout={handleLogoutSuperAdmin}
+          />
+        )}
+
         {activeTab === 'drawing' && (
           <LiveDrawingPresenter
             tournamentTitle={tournament.title}
             tournamentId={tournament.id}
             teams={teams}
             session={drawingSession}
-            isAdmin={isAdmin}
+            isAdmin={isSuperAdmin}
             onSlotAssigned={handleSlotAssigned}
           />
         )}
@@ -379,25 +566,38 @@ export default function TournamentDashboard() {
         {activeTab === 'bracket' && (
           <BracketTreeVisualizer
             matches={matches}
-            isAdmin={isAdmin}
+            isAdmin={isSuperAdmin}
             onSaveScore={handleSaveScore}
+          />
+        )}
+
+        {activeTab === 'groups' && (
+          <GroupStageVisualizer
+            groups={groups}
+            matches={matches}
+            onMatchClick={() => {}}
           />
         )}
 
         {activeTab === 'schedule' && (
           <ScheduleMatrix
             matches={matches}
-            onMatchClick={() => setActiveTab('bracket')}
+            onMatchClick={() => {
+              if (isKnockout) setActiveTab('bracket');
+              else setActiveTab('groups');
+            }}
           />
         )}
 
         {activeTab === 'teams' && (
           <div className="space-y-8">
-            <TeamBatchImporter
-              tournamentId={tournament.id}
-              existingTeams={teams}
-              onImportTeams={handleImportTeams}
-            />
+            {isSuperAdmin && (
+              <TeamBatchImporter
+                tournamentId={tournament.id}
+                existingTeams={teams}
+                onImportTeams={handleImportTeams}
+              />
+            )}
 
             {/* Current Teams Listing */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 sm:p-8">
@@ -434,6 +634,11 @@ export default function TournamentDashboard() {
                           Slot #{t.drawnSlot}
                         </div>
                       )}
+                      {t.groupName && (
+                        <div className="text-[10px] text-indigo-400 font-bold mt-1">
+                          {t.groupName}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -441,15 +646,17 @@ export default function TournamentDashboard() {
             </div>
           </div>
         )}
-
-        {activeTab === 'groups' && (
-          <GroupStageVisualizer
-            groups={groups}
-            matches={matches}
-            onMatchClick={() => {}}
-          />
-        )}
       </div>
+
+      {/* Super Admin Auth Modal */}
+      <SuperAdminAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthenticated={() => {
+          setIsSuperAdmin(true);
+          setActiveTab('admin');
+        }}
+      />
 
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950 px-8 py-4 text-center text-xs text-slate-500 no-print">
